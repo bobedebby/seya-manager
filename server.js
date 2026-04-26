@@ -3,10 +3,9 @@ const express = require('express');
 const multer = require('multer');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
-const fs = require('fs');
 
 const app = express();
-const upload = multer({ dest: 'uploads/' });
+const upload = multer({ storage: multer.memoryStorage() });
 
 app.use(cors());
 app.use(express.json());
@@ -21,9 +20,8 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Seya Manager 運作中' });
 });
 
-async function analyzeImageWithClaude(imagePath, mimeType, imageType) {
-  const imageBuffer = fs.readFileSync(imagePath);
-  const base64Image = imageBuffer.toString('base64');
+async function analyzeImageWithClaude(buffer, mimeType, imageType) {
+  const base64Image = buffer.toString('base64');
 
   const prompts = {
     sales_ranking: `這是一張產品銷售排行表。請整理成 JSON，只回傳 JSON 不要其他文字：
@@ -91,9 +89,8 @@ app.post('/api/analyze-multi', upload.array('images', 3), async (req, res) => {
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       const imageType = typeArray[i];
-      const parsed = await analyzeImageWithClaude(file.path, file.mimetype, imageType);
+      const parsed = await analyzeImageWithClaude(file.buffer, file.mimetype, imageType);
       results[imageType] = parsed;
-      fs.unlinkSync(file.path);
     }
 
     const merged = {
