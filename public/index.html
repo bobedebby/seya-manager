@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Seya Manager</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, sans-serif; background: #f5f5f5; color: #333; }
+    .header { background: #1a1a1a; color: white; padding: 16px 20px; font-size: 18px; font-weight: bold; }
+    .container { padding: 20px; max-width: 600px; margin: 0 auto; }
+    .card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+    .card h2 { font-size: 16px; margin-bottom: 16px; color: #666; }
+    .upload-row { display: flex; gap: 12px; margin-bottom: 12px; }
+    .upload-box { flex: 1; border: 2px dashed #ddd; border-radius: 8px; padding: 16px 8px; text-align: center; cursor: pointer; }
+    .upload-box input { display: none; }
+    .upload-box .icon { font-size: 28px; margin-bottom: 4px; }
+    .upload-box .label { font-size: 11px; color: #666; line-height: 1.3; }
+    .upload-box img { width: 100%; border-radius: 4px; margin-top: 8px; display: none; max-height: 80px; object-fit: cover; }
+    .upload-box.has-image { border-color: #34c759; border-style: solid; }
+    .btn { width: 100%; padding: 14px; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 12px; }
+    .btn-primary { background: #1a1a1a; color: white; }
+    .btn-success { background: #34c759; color: white; }
+    .btn:disabled { background: #ccc; cursor: not-allowed; }
+    .result-area { display: none; }
+    .result-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .result-table th { background: #f5f5f5; padding: 8px; text-align: left; font-weight: 600; }
+    .result-table td { padding: 8px; border-bottom: 1px solid #eee; }
+    .summary-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; font-size: 15px; }
+    .summary-row:last-child { border-bottom: none; }
+    .summary-label { color: #666; }
+    .summary-value { font-weight: bold; }
+    .total-row { color: #34c759; font-size: 17px; }
+    .period-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #eee; font-size: 14px; }
+    .status-msg { padding: 12px; border-radius: 8px; text-align: center; font-size: 14px; display: none; margin-top: 12px; }
+    .status-loading { background: #fff3cd; color: #856404; }
+    .status-success { background: #d4edda; color: #155724; }
+    .status-error { background: #f8d7da; color: #721c24; }
+  </style>
+</head>
+<body>
+  <div class="header">☕ Seya Manager</div>
+  <div class="container">
+    <div class="card">
+      <h2>📷 上傳今日三張明細</h2>
+      <div class="upload-row">
+        <div class="upload-box" id="box1" onclick="document.getElementById('file1').click()">
+          <input type="file" id="file1" accept="image/*" capture="environment">
+          <div class="icon">📊</div>
+          <div class="label">產品銷售<br>排行表</div>
+          <img id="prev1">
+        </div>
+        <div class="upload-box" id="box2" onclick="document.getElementById('file2').click()">
+          <input type="file" id="file2" accept="image/*" capture="environment">
+          <div class="icon">💳</div>
+          <div class="label">結帳<br>明細</div>
+          <img id="prev2">
+        </div>
+        <div class="upload-box" id="box3" onclick="document.getElementById('file3').click()">
+          <input type="file" id="file3" accept="image/*" capture="environment">
+          <div class="icon">🕐</div>
+          <div class="label">結帳<br>總表</div>
+          <img id="prev3">
+        </div>
+      </div>
+      <button class="btn btn-primary" id="analyzeBtn" disabled onclick="analyzeImages()">解析今日明細</button>
+      <div class="status-msg" id="statusMsg"></div>
+    </div>
+    <div class="card result-area" id="resultArea">
+      <h2>📊 產品銷售排行</h2>
+      <table class="result-table">
+        <thead><tr><th>排行</th><th>品項</th><th>數量</th><th>營收</th></tr></thead>
+        <tbody id="itemsBody"></tbody>
+      </table>
+    </div>
+    <div class="card result-area" id="summaryArea">
+      <h2>💰 收款摘要</h2>
+      <div id="summaryBody"></div>
+    </div>
+    <div class="card result-area" id="periodArea">
+      <h2>🕐 時段營業額</h2>
+      <div id="periodBody"></div>
+      <button class="btn btn-success" id="saveBtn" onclick="saveData()">確認並儲存</button>
+    </div>
+  </div>
+  <script>
+    let parsedData = null;
+    let uploadedFiles = {};
+    ['1','2','3'].forEach(n => {
+      document.getElementById('file'+n).addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        uploadedFiles[n] = file;
+        const reader = new FileReader();
+        reader.onload = function(ev) {
+          const img = document.getElementById('prev'+n);
+          img.src = ev.target.result;
+          img.style.display = 'block';
+          document.getElementById('box'+n).classList.add('has-image');
+        };
+        reader.readAsDataURL(file);
+        checkReady();
+      });
+    });
+    function checkReady() {
+      const count = Object.keys(uploadedFiles).length;
+      document.getElementById('analyzeBtn').disabled = count === 0;
+      if (count > 0 && count < 3) {
+        document.getElementById('analyzeBtn').textContent = '解析今日明細（' + count + '/3 張）';
+      } else if (count === 3) {
+        document.getElementById('analyzeBtn').textContent = '解析今日明細（3 張齊全）';
+      }
+    }
+    async function analyzeImages() {
+      showStatus('loading', '⏳ Claude 正在解析圖片，請稍候...');
+      document.getElementById('analyzeBtn').disabled = true;
+      const formData = new FormData();
+      Object.keys(uploadedFiles).forEach(n => {
+        formData.append('images', uploadedFiles[n]);
+        formData.append('types', ['sales_ranking','payment_detail','period_summary'][parseInt(n)-1]);
+      });
+      try {
+        const res = await fetch('/api/analyze-multi', { method: 'POST', body: formData });
+        const result = await res.json();
+        if (!result.success) throw new Error(result.error);
+        parsedData = result.data;
+        displayResult(parsedData);
+        showStatus('success', '✅ 解析完成，請確認後儲存');
+      } catch (err) {
+        showStatus('error', '❌ 解析失敗：' + err.message);
+        document.getElementById('analyzeBtn').disabled = false;
+      }
+    }
+    function displayResult(data) {
+      document.getElementById('itemsBody').innerHTML = data.items.map((item, i) =>
+        '<tr><td>'+(i+1)+'</td><td>'+item.product_name+'</td><td>'+item.qty_sold+'</td><td>$'+(item.revenue||'-')+'</td></tr>'
+      ).join('');
+      document.getElementById('summaryBody').innerHTML =
+        '<div class="summary-row"><span class="summary-label">日期</span><span class="summary-value">'+(data.sale_date||'-')+'</span></div>'+
+        '<div class="summary-row"><span class="summary-label">現金</span><span class="summary-value">$'+(data.cash_amount||0)+'</span></div>'+
+        '<div class="summary-row"><span class="summary-label">信用卡</span><span class="summary-value">$'+(data.card_amount||0)+'</span></div>'+
+        '<div class="summary-row"><span class="summary-label">其他</span><span class="summary-value">$'+(data.other_amount||0)+'</span></div>'+
+        '<div class="summary-row total-row"><span class="summary-label">總營業額</span><span class="summary-value">$'+(data.total_revenue||0)+'</span></div>';
+      if (data.periods && data.periods.length > 0) {
+        document.getElementById('periodBody').innerHTML = data.periods.map(p =>
+          '<div class="period-row"><span>'+p.time+'</span><span>$'+p.amount+'</span></div>'
+        ).join('');
+      } else {
+        document.getElementById('periodBody').innerHTML = '<div class="period-row"><span style="color:#999">無時段資料</span></div>';
+      }
+      document.querySelectorAll('.result-area').forEach(el => el.style.display = 'block');
+    }
+    async function saveData() {
+      if (!parsedData) return;
+      showStatus('loading', '⏳ 儲存中...');
+      document.getElementById('saveBtn').disabled = true;
+      try {
+        const res = await fetch('/api/save-daily', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify(parsedData)
+        });
+        const result = await res.json();
+        if (!result.success) throw new Error(result.error);
+        showStatus('success', '✅ 資料已儲存到資料庫');
+      } catch (err) {
+        showStatus('error', '❌ 儲存失敗：' + err.message);
+        document.getElementById('saveBtn').disabled = false;
+      }
+    }
+    function showStatus(type, msg) {
+      const el = document.getElementById('statusMsg');
+      el.className = 'status-msg status-' + type;
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+  </script>
+</body>
+</html>
