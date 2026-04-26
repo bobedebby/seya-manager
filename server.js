@@ -151,6 +151,10 @@ app.post('/api/save-daily', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Seya Manager 伺服器啟動於 port ${PORT}`);
-});
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`Seya Manager 伺服器啟動於 port ${PORT}`);
+  });
+}
+
+module.exports = app;

@@ -12,6 +12,7 @@
   "type": "commonjs",
   "dependencies": {
     "@supabase/supabase-js": "^2.104.1",
+    "@vercel/node": "^5.7.13",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
