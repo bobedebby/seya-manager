@@ -1,3 +1,4 @@
+if (process.env.NODE_ENV !== 'production') { process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'; }
 if (process.env.NODE_ENV !== 'production') { require('dotenv').config(); }
 const express = require('express');
 const multer = require('multer');
@@ -79,6 +80,7 @@ async function analyzeImageWithClaude(buffer, mimeType, imageType) {
 
   const data = await response.json();
   const text = data.content[0].text.trim();
+  console.log('Claude回傳[' + imageType + ']:', text.substring(0, 300));
   const clean = text.replace(/```json|```/g, '').trim();
   return JSON.parse(clean);
 }
