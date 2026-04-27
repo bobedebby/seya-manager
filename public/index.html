@@ -111,14 +111,40 @@
         document.getElementById('analyzeBtn').textContent = '解析今日明細（3 張齊全）';
       }
     }
+    async function compressImage(file) {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const img = new Image();
+          img.onload = function() {
+            const canvas = document.createElement('canvas');
+            const maxSize = 1200;
+            let w = img.width, h = img.height;
+            if (w > maxSize || h > maxSize) {
+              if (w > h) { h = h * maxSize / w; w = maxSize; }
+              else { w = w * maxSize / h; h = maxSize; }
+            }
+            canvas.width = w;
+            canvas.height = h;
+            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+            canvas.toBlob((blob) => resolve(new File([blob], file.name, {type: 'image/jpeg'})), 'image/jpeg', 0.7);
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
     async function analyzeImages() {
-      showStatus('loading', '⏳ Claude 正在解析圖片，請稍候...');
+      showStatus('loading', '⏳ 壓縮圖片中...');
       document.getElementById('analyzeBtn').disabled = true;
       const formData = new FormData();
-      Object.keys(uploadedFiles).forEach(n => {
-        formData.append('images', uploadedFiles[n]);
+      for (const n of Object.keys(uploadedFiles)) {
+        const compressed = await compressImage(uploadedFiles[n]);
+        formData.append('images', compressed);
         formData.append('types', ['sales_ranking','payment_detail','period_summary'][parseInt(n)-1]);
-      });
+      }
+      showStatus('loading', '⏳ Claude 正在解析圖片，請稍候...');
       try {
         const res = await fetch('/api/analyze-multi', { method: 'POST', body: formData });
         const result = await res.json();
