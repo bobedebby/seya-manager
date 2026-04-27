@@ -42,11 +42,20 @@ async function analyzeImageWithClaude(buffer, mimeType, imageType) {
   "other_amount": 其他金額
 }`,
     period_summary: `這是一張交班總表收據。請擷取以下資訊，整理成 JSON，只回傳 JSON 不要其他文字：
+
+注意：
+- 折價券金額：收據上如有「折價券」欄位則取其數字，沒有則為0
+- 折讓金額：收據上「折讓金額」欄位的數字，沒有則為0
+- 實際總營業額 = 營業金額 - 折價券金額 - 折讓金額
+- 付現金額：收據上「付現金額」欄位
+- 刷卡金額：收據上「刷卡金額」欄位
+
 {
   "sale_date": "YYYY-MM-DD",
   "gross_revenue": 營業金額數字,
-  "discount_amount": 折讓金額數字,
-  "total_revenue": 營業金額減去折讓金額的結果,
+  "coupon_amount": 折價券金額數字（沒有則為0）,
+  "discount_amount": 折讓金額數字（沒有則為0）,
+  "total_revenue": 營業金額減去折價券金額再減去折讓金額的結果,
   "cash_amount": 付現金額數字,
   "card_amount": 刷卡金額數字,
   "periods": [
