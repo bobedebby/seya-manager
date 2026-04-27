@@ -24,28 +24,33 @@ async function analyzeImageWithClaude(buffer, mimeType, imageType) {
   const base64Image = buffer.toString('base64');
 
   const prompts = {
-    sales_ranking: `這是一張產品銷售排行表。請整理成 JSON，只回傳 JSON 不要其他文字：
+    sales_ranking: `這是一張商品銷售排行榜收據。格式是：名稱、銷售量、單價（累積金額，請忽略）、小計（累積金額，請忽略）。
+請只擷取品項名稱與銷售量，整理成 JSON，只回傳 JSON 不要其他文字：
 {
   "sale_date": "YYYY-MM-DD",
   "items": [
-    { "product_name": "品項名稱", "qty_sold": 數量, "revenue": 金額 }
+    { "product_name": "品項名稱", "qty_sold": 數量 }
   ]
 }`,
-    payment_detail: `這是一張結帳明細，包含現金與信用卡收款。請整理成 JSON，只回傳 JSON 不要其他文字：
+    payment_detail: `這是一張每日櫃檯結帳明細表。請找底部的總計金額區塊，擷取以下資訊，整理成 JSON，只回傳 JSON 不要其他文字：
 {
   "sale_date": "YYYY-MM-DD",
-  "total_revenue": 總金額,
-  "cash_amount": 現金金額,
-  "card_amount": 信用卡金額,
+  "total_revenue": 總結金額數字,
+  "cash_amount": 現金金額（總結金額減去所有刷卡金額）,
+  "card_amount": VISA金額加MASTER金額加JCB金額加運通金額的總和,
   "other_amount": 其他金額
 }`,
-    period_summary: `這是一張時段營業額總表。請整理成 JSON，只回傳 JSON 不要其他文字：
+    period_summary: `這是一張交班總表收據。請擷取以下資訊，整理成 JSON，只回傳 JSON 不要其他文字：
 {
   "sale_date": "YYYY-MM-DD",
+  "gross_revenue": 營業金額數字,
+  "discount_amount": 折讓金額數字,
+  "total_revenue": 營業金額減去折讓金額的結果,
+  "cash_amount": 付現金額數字,
+  "card_amount": 刷卡金額數字,
   "periods": [
-    { "time": "時段", "amount": 金額 }
-  ],
-  "total_revenue": 總金額
+    { "time": "時段數字", "amount": 營業額數字, "customers": 客數數字 }
+  ]
 }`
   };
 
@@ -85,25 +90,34 @@ app.post('/api/analyze-multi', upload.array('images', 3), async (req, res) => {
     const typeArray = Array.isArray(types) ? types : [types];
 
     const results = {};
+    const errors = {};
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       const imageType = typeArray[i];
-      const parsed = await analyzeImageWithClaude(file.buffer, file.mimetype, imageType);
-      results[imageType] = parsed;
+      try {
+        const parsed = await analyzeImageWithClaude(file.buffer, file.mimetype, imageType);
+        results[imageType] = parsed;
+      } catch (e) {
+        errors[imageType] = e.message;
+      }
     }
 
+    const summary = results.period_summary;
+    const payment = results.payment_detail;
+    const sales = results.sales_ranking;
+
     const merged = {
-      sale_date: results.sales_ranking?.sale_date ||
-                 results.payment_detail?.sale_date ||
-                 results.period_summary?.sale_date,
-      items: results.sales_ranking?.items || [],
-      total_revenue: results.payment_detail?.total_revenue ||
-                     results.period_summary?.total_revenue || 0,
-      cash_amount: results.payment_detail?.cash_amount || 0,
-      card_amount: results.payment_detail?.card_amount || 0,
-      other_amount: results.payment_detail?.other_amount || 0,
-      periods: results.period_summary?.periods || []
+      sale_date: summary?.sale_date || payment?.sale_date || sales?.sale_date,
+      items: sales?.items || [],
+      gross_revenue: summary?.gross_revenue || 0,
+      discount_amount: summary?.discount_amount || 0,
+      total_revenue: summary?.total_revenue || payment?.total_revenue || 0,
+      cash_amount: summary?.cash_amount || payment?.cash_amount || 0,
+      card_amount: summary?.card_amount || payment?.card_amount || 0,
+      other_amount: payment?.other_amount || 0,
+      periods: summary?.periods || [],
+      parse_errors: Object.keys(errors).length > 0 ? errors : null
     };
 
     res.json({ success: true, data: merged });
@@ -116,11 +130,17 @@ app.post('/api/analyze-multi', upload.array('images', 3), async (req, res) => {
 
 app.post('/api/save-daily', async (req, res) => {
   try {
-    const { sale_date, items, total_revenue, cash_amount, card_amount, other_amount } = req.body;
+    const { sale_date, items, total_revenue, gross_revenue, discount_amount, cash_amount, card_amount, other_amount } = req.body;
 
     const { error: cashError } = await supabase
       .from('daily_cash')
-      .upsert({ sale_date, total_revenue, cash_amount, card_amount, other_amount });
+      .upsert({
+        sale_date,
+        total_revenue,
+        cash_amount,
+        card_amount,
+        other_amount
+      });
 
     if (cashError) throw cashError;
 
@@ -128,8 +148,7 @@ app.post('/api/save-daily', async (req, res) => {
       const salesData = items.map(item => ({
         sale_date,
         product_name: item.product_name,
-        qty_sold: item.qty_sold,
-        revenue: item.revenue
+        qty_sold: item.qty_sold
       }));
 
       const { error: salesError } = await supabase
