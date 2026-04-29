@@ -22,7 +22,9 @@ const supabase = createClient(
 const PRODUCT_NAME_MAP = {
   '單品黑咖啡':   'Today單品',
   '重拿鐵':       '重拿鐵咖啡',
-  '單品豆1/4磅':  '配方豆1/4磅',   // POS 可能顯示「單品豆」
+  '單品豆1/4磅':  '配方豆1/4磅',
+  '柚香灑酒拿鐵': '柚香灑酒拿鐵',  // 強制對應，防止字元比對失敗
+  '果乾磅蛋糕':   '山午磅蛋糕',
 };
 
 // POS 名稱含以下關鍵字時 → 對應到 products 表的「晨醞厚吐司」（成本40，售價45）
@@ -206,56 +208,34 @@ app.post('/api/save-daily', async (req, res) => {
 
       if (salesError) throw salesError;
 
-      // 3. 查 products 表，批次取得成本（欄位：name, sell_price, cost_price）
-      const { data: products } = await supabase
-        .from('products')
-        .select('name, sell_price, cost_price');
+      // 3. 用 SQL UPDATE JOIN 在資料庫層直接回填成本，完全繞過 Node 字串比對問題
+      const { error: fillError } = await supabase.rpc('backfill_daily_sales_cost', {
+        p_sale_date: sale_date
+      });
+      if (fillError) console.warn('成本回填 RPC 失敗:', fillError.message);
 
-      const productMap = {};
-      (products || []).forEach(p => { productMap[p.name] = p; });
-
-      // 4. 計算每個品項的成本與毛利，批次 update
-      const updates = items.map(item => {
-        const { resolvedName, fixedCost } = resolveProductName(item.product_name);
-
-        let unit_price, cost;
-
-        if (fixedCost !== null) {
-          unit_price = null;
-          cost = fixedCost * item.qty_sold;
-        } else {
-          const p = productMap[resolvedName];
-          unit_price = p ? parseFloat(p.sell_price) : null;
-          cost = p ? (parseFloat(p.cost_price) * item.qty_sold) : null;
-        }
-
-        const gross_profit = (unit_price != null && cost != null)
-          ? (unit_price * item.qty_sold - cost)
-          : null;
-
-        return {
-          sale_date,
-          product_name: item.product_name,
-          unit_price,
-          cost,
-          gross_profit
-        };
+      // 4. 處理 PRODUCT_NAME_MAP 別名（POS 名稱與 products 不同的品項）
+      const aliasItems = items.filter(item => {
+        const { resolvedName } = resolveProductName(item.product_name);
+        return resolvedName !== item.product_name;
       });
 
-      // 逐筆 upsert（批次 update 需 PK 比對，用 upsert 最安全）
-      for (const u of updates) {
-        if (u.cost === null) continue; // 查不到成本的跳過，不覆蓋
-        const { error: upErr } = await supabase
+      for (const item of aliasItems) {
+        const { resolvedName } = resolveProductName(item.product_name);
+        const { data: p } = await supabase
+          .from('products')
+          .select('sell_price, cost_price')
+          .eq('name', resolvedName)
+          .single();
+        if (!p) continue;
+        const unit_price  = parseFloat(p.sell_price);
+        const cost        = parseFloat(p.cost_price) * item.qty_sold;
+        const gross_profit = unit_price * item.qty_sold - cost;
+        await supabase
           .from('daily_sales')
-          .update({
-            unit_price:   u.unit_price,
-            cost:         u.cost,
-            gross_profit: u.gross_profit
-          })
-          .eq('sale_date', u.sale_date)
-          .eq('product_name', u.product_name);
-
-        if (upErr) console.warn('成本回填失敗:', u.product_name, upErr.message);
+          .update({ unit_price, cost, gross_profit })
+          .eq('sale_date', sale_date)
+          .eq('product_name', item.product_name);
       }
     }
 
