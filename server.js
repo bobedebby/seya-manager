@@ -18,32 +18,30 @@ const supabase = createClient(
 );
 
 // ─── 品項名稱正規化對應表 ────────────────────────────────────────────
-// POS 顯示名稱 → products 表的 product_name
+// POS 顯示名稱 → products 表的 name 欄位
 const PRODUCT_NAME_MAP = {
-  '單品黑咖啡': 'Today單品',
-  '重拿鐵':     '重拿鐵咖啡',
+  '單品黑咖啡':   'Today單品',
+  '重拿鐵':       '重拿鐵咖啡',
+  '單品豆1/4磅':  '配方豆1/4磅',   // POS 可能顯示「單品豆」
 };
 
-// POS 名稱含以下關鍵字時，統一成本固定為 40 元（不查 products 表）
-const FIXED_COST_KEYWORDS = ['晨醞', '醺', '醒厚土', '吐司'];
+// POS 名稱含以下關鍵字時 → 對應到 products 表的「晨醞厚吐司」（成本40，售價45）
+const TOAST_KEYWORDS = ['晨醞', '厚土司', '厚吐司', '吐司'];
 
-// 配方豆特殊規則（依 product_name 精確比對）
-const BEAN_FIXED = {
-  '配方豆半磅':   { unit_price: 450, cost: 210 },
-  '配方豆1/4磅':  { unit_price: 240, cost: 105 },
-};
+/**
+ * 將 POS 品項名稱解析成 { resolvedName, fixedCost }
+ * fixedCost = null 表示需要查 products 表
+ */
 
 /**
  * 將 POS 品項名稱解析成 { resolvedName, fixedCost }
  * fixedCost = null 表示需要查 products 表
  */
 function resolveProductName(posName) {
-  // 固定成本關鍵字
-  for (const kw of FIXED_COST_KEYWORDS) {
-    if (posName.includes(kw)) return { resolvedName: posName, fixedCost: 40 };
+  // 吐司類 → 統一對應到 products 表的「晨醞厚吐司」
+  for (const kw of TOAST_KEYWORDS) {
+    if (posName.includes(kw)) return { resolvedName: '晨醞厚吐司', fixedCost: null };
   }
-  // 配方豆精確比對
-  if (BEAN_FIXED[posName]) return { resolvedName: posName, fixedCost: null };
   // 一般別名對應
   const mapped = PRODUCT_NAME_MAP[posName] || posName;
   return { resolvedName: mapped, fixedCost: null };
@@ -205,13 +203,13 @@ app.post('/api/save-daily', async (req, res) => {
 
       if (salesError) throw salesError;
 
-      // 3. 查 products 表，批次取得成本
+      // 3. 查 products 表，批次取得成本（欄位：name, sell_price, cost_price）
       const { data: products } = await supabase
         .from('products')
-        .select('product_name, unit_price, cost');
+        .select('name, sell_price, cost_price');
 
       const productMap = {};
-      (products || []).forEach(p => { productMap[p.product_name] = p; });
+      (products || []).forEach(p => { productMap[p.name] = p; });
 
       // 4. 計算每個品項的成本與毛利，批次 update
       const updates = items.map(item => {
@@ -220,19 +218,12 @@ app.post('/api/save-daily', async (req, res) => {
         let unit_price, cost;
 
         if (fixedCost !== null) {
-          // 固定成本（晨醞/吐司等）
           unit_price = null;
           cost = fixedCost * item.qty_sold;
-        } else if (BEAN_FIXED[item.product_name]) {
-          // 配方豆特殊規則
-          const b = BEAN_FIXED[item.product_name];
-          unit_price = b.unit_price;
-          cost = b.cost * item.qty_sold;
         } else {
-          // 查 products 表
           const p = productMap[resolvedName];
-          unit_price = p?.unit_price ?? null;
-          cost = p ? (p.cost * item.qty_sold) : null;
+          unit_price = p ? parseFloat(p.sell_price) : null;
+          cost = p ? (parseFloat(p.cost_price) * item.qty_sold) : null;
         }
 
         const gross_profit = (unit_price != null && cost != null)
