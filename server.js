@@ -183,7 +183,10 @@ app.post('/api/save-daily', async (req, res) => {
     // 1. 存 daily_cash
     const { error: cashError } = await supabase
       .from('daily_cash')
-      .upsert({ sale_date, total_revenue, cash_amount, card_amount, other_amount });
+      .upsert(
+        { sale_date, total_revenue, cash_amount, card_amount, other_amount },
+        { onConflict: 'sale_date' }
+      );
 
     if (cashError) throw cashError;
 
