@@ -17,10 +17,43 @@ const supabase = createClient(
   process.env.SUPABASE_SECRET_KEY
 );
 
+// ─── 品項名稱正規化對應表 ────────────────────────────────────────────
+// POS 顯示名稱 → products 表的 product_name
+const PRODUCT_NAME_MAP = {
+  '單品黑咖啡': 'Today單品',
+  '重拿鐵':     '重拿鐵咖啡',
+};
+
+// POS 名稱含以下關鍵字時，統一成本固定為 40 元（不查 products 表）
+const FIXED_COST_KEYWORDS = ['晨醞', '醺', '醒厚土', '吐司'];
+
+// 配方豆特殊規則（依 product_name 精確比對）
+const BEAN_FIXED = {
+  '配方豆半磅':   { unit_price: 450, cost: 210 },
+  '配方豆1/4磅':  { unit_price: 240, cost: 105 },
+};
+
+/**
+ * 將 POS 品項名稱解析成 { resolvedName, fixedCost }
+ * fixedCost = null 表示需要查 products 表
+ */
+function resolveProductName(posName) {
+  // 固定成本關鍵字
+  for (const kw of FIXED_COST_KEYWORDS) {
+    if (posName.includes(kw)) return { resolvedName: posName, fixedCost: 40 };
+  }
+  // 配方豆精確比對
+  if (BEAN_FIXED[posName]) return { resolvedName: posName, fixedCost: null };
+  // 一般別名對應
+  const mapped = PRODUCT_NAME_MAP[posName] || posName;
+  return { resolvedName: mapped, fixedCost: null };
+}
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Seya Manager 運作中' });
 });
 
+// ─── Claude Vision 解析 ──────────────────────────────────────────────
 async function analyzeImageWithClaude(buffer, mimeType, imageType) {
   const base64Image = buffer.toString('base64');
 
@@ -94,6 +127,7 @@ async function analyzeImageWithClaude(buffer, mimeType, imageType) {
   return JSON.parse(clean);
 }
 
+// ─── 圖片解析 ────────────────────────────────────────────────────────
 app.post('/api/analyze-multi', upload.array('images', 3), async (req, res) => {
   try {
     const files = req.files;
@@ -116,19 +150,19 @@ app.post('/api/analyze-multi', upload.array('images', 3), async (req, res) => {
 
     const summary = results.period_summary;
     const payment = results.payment_detail;
-    const sales = results.sales_ranking;
+    const sales   = results.sales_ranking;
 
     const merged = {
-      sale_date: summary?.sale_date || payment?.sale_date || sales?.sale_date,
-      items: sales?.items || [],
-      gross_revenue: summary?.gross_revenue || 0,
+      sale_date:       summary?.sale_date || payment?.sale_date || sales?.sale_date,
+      items:           sales?.items || [],
+      gross_revenue:   summary?.gross_revenue || 0,
       discount_amount: summary?.discount_amount || 0,
-      total_revenue: summary?.total_revenue || payment?.total_revenue || 0,
-      cash_amount: summary?.cash_amount || payment?.cash_amount || 0,
-      card_amount: summary?.card_amount || payment?.card_amount || 0,
-      other_amount: payment?.other_amount || 0,
-      periods: summary?.periods || [],
-      parse_errors: Object.keys(errors).length > 0 ? errors : null
+      total_revenue:   summary?.total_revenue || payment?.total_revenue || 0,
+      cash_amount:     summary?.cash_amount  || payment?.cash_amount  || 0,
+      card_amount:     summary?.card_amount  || payment?.card_amount  || 0,
+      other_amount:    payment?.other_amount || 0,
+      periods:         summary?.periods || [],
+      parse_errors:    Object.keys(errors).length > 0 ? errors : null
     };
 
     res.json({ success: true, data: merged });
@@ -139,27 +173,30 @@ app.post('/api/analyze-multi', upload.array('images', 3), async (req, res) => {
   }
 });
 
+// ─── 儲存每日資料（自動回填成本） ────────────────────────────────────
 app.post('/api/save-daily', async (req, res) => {
   try {
-    const { sale_date, items, total_revenue, gross_revenue, discount_amount, cash_amount, card_amount, other_amount } = req.body;
+    const {
+      sale_date, items, total_revenue,
+      gross_revenue, discount_amount,
+      cash_amount, card_amount, other_amount
+    } = req.body;
 
+    // 1. 存 daily_cash
     const { error: cashError } = await supabase
       .from('daily_cash')
-      .upsert({
-        sale_date,
-        total_revenue,
-        cash_amount,
-        card_amount,
-        other_amount
-      });
+      .upsert({ sale_date, total_revenue, cash_amount, card_amount, other_amount });
 
     if (cashError) throw cashError;
 
+    // 2. 存 daily_sales（先清掉同日舊資料避免重複）
     if (items && items.length > 0) {
+      await supabase.from('daily_sales').delete().eq('sale_date', sale_date);
+
       const salesData = items.map(item => ({
         sale_date,
         product_name: item.product_name,
-        qty_sold: item.qty_sold
+        qty_sold:     item.qty_sold
       }));
 
       const { error: salesError } = await supabase
@@ -167,6 +204,65 @@ app.post('/api/save-daily', async (req, res) => {
         .insert(salesData);
 
       if (salesError) throw salesError;
+
+      // 3. 查 products 表，批次取得成本
+      const { data: products } = await supabase
+        .from('products')
+        .select('product_name, unit_price, cost');
+
+      const productMap = {};
+      (products || []).forEach(p => { productMap[p.product_name] = p; });
+
+      // 4. 計算每個品項的成本與毛利，批次 update
+      const updates = items.map(item => {
+        const { resolvedName, fixedCost } = resolveProductName(item.product_name);
+
+        let unit_price, cost;
+
+        if (fixedCost !== null) {
+          // 固定成本（晨醞/吐司等）
+          unit_price = null;
+          cost = fixedCost * item.qty_sold;
+        } else if (BEAN_FIXED[item.product_name]) {
+          // 配方豆特殊規則
+          const b = BEAN_FIXED[item.product_name];
+          unit_price = b.unit_price;
+          cost = b.cost * item.qty_sold;
+        } else {
+          // 查 products 表
+          const p = productMap[resolvedName];
+          unit_price = p?.unit_price ?? null;
+          cost = p ? (p.cost * item.qty_sold) : null;
+        }
+
+        const gross_profit = (unit_price != null && cost != null)
+          ? (unit_price * item.qty_sold - cost)
+          : null;
+
+        return {
+          sale_date,
+          product_name: item.product_name,
+          unit_price,
+          cost,
+          gross_profit
+        };
+      });
+
+      // 逐筆 upsert（批次 update 需 PK 比對，用 upsert 最安全）
+      for (const u of updates) {
+        if (u.cost === null) continue; // 查不到成本的跳過，不覆蓋
+        const { error: upErr } = await supabase
+          .from('daily_sales')
+          .update({
+            unit_price:   u.unit_price,
+            cost:         u.cost,
+            gross_profit: u.gross_profit
+          })
+          .eq('sale_date', u.sale_date)
+          .eq('product_name', u.product_name);
+
+        if (upErr) console.warn('成本回填失敗:', u.product_name, upErr.message);
+      }
     }
 
     res.json({ success: true, message: '資料已儲存' });
@@ -177,7 +273,7 @@ app.post('/api/save-daily', async (req, res) => {
   }
 });
 
-
+// ─── 每日毛利報表 ────────────────────────────────────────────────────
 app.get('/api/daily-report/:date', async (req, res) => {
   try {
     const { date } = req.params;
@@ -198,9 +294,9 @@ app.get('/api/daily-report/:date', async (req, res) => {
 
     if (cashError && cashError.code !== 'PGRST116') throw cashError;
 
-    const total_cost = sales.reduce((sum, s) => sum + (s.cost || 0), 0);
+    const total_cost         = sales.reduce((sum, s) => sum + (s.cost         || 0), 0);
     const total_gross_profit = sales.reduce((sum, s) => sum + (s.gross_profit || 0), 0);
-    const total_revenue = cash?.total_revenue || 0;
+    const total_revenue      = cash?.total_revenue || 0;
     const margin_pct = total_revenue > 0
       ? Math.round(total_gross_profit / total_revenue * 1000) / 10
       : 0;
@@ -213,8 +309,8 @@ app.get('/api/daily-report/:date', async (req, res) => {
         total_cost,
         total_gross_profit,
         margin_pct,
-        cash_amount: cash?.cash_amount || 0,
-        card_amount: cash?.card_amount || 0,
+        cash_amount:  cash?.cash_amount  || 0,
+        card_amount:  cash?.card_amount  || 0,
         items: sales
       }
     });
@@ -225,7 +321,7 @@ app.get('/api/daily-report/:date', async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.NODE_ENV !== 'production' ? (process.env.PORT || 3000) : (process.env.PORT || 3000);
 if (process.env.NODE_ENV !== 'production') {
   app.listen(PORT, () => {
     console.log(`Seya Manager 伺服器啟動於 port ${PORT}`);
