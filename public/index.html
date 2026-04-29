@@ -82,6 +82,16 @@
       <div id="periodBody"></div>
       <button class="btn btn-success" id="saveBtn" onclick="saveData()">確認並儲存</button>
     </div>
+
+    <div class="card" id="reportArea" style="display:none">
+      <h2>📈 當日毛利報表</h2>
+      <div id="reportBody"></div>
+      <h2 style="margin-top:16px;font-size:14px;color:#666">品項毛利排行</h2>
+      <table class="result-table" style="margin-top:8px">
+        <thead><tr><th>排行</th><th>品項</th><th>數量</th><th>毛利</th></tr></thead>
+        <tbody id="reportItems"></tbody>
+      </table>
+    </div>
   </div>
   <script>
     let parsedData = null;
@@ -188,11 +198,31 @@
         });
         const result = await res.json();
         if (!result.success) throw new Error(result.error);
-        showStatus('success', '✅ 資料已儲存到資料庫');
+        showStatus('success', '✅ 資料已儲存');
+        await loadDailyReport(parsedData.sale_date);
       } catch (err) {
         showStatus('error', '❌ 儲存失敗：' + err.message);
         document.getElementById('saveBtn').disabled = false;
       }
+    }
+
+    async function loadDailyReport(date) {
+      try {
+        const res = await fetch('/api/daily-report/' + date);
+        const result = await res.json();
+        if (!result.success) return;
+        const d = result.data;
+        const el = document.getElementById('reportArea');
+        el.style.display = 'block';
+        document.getElementById('reportBody').innerHTML =
+          '<div class="summary-row"><span class="summary-label">實收營業額</span><span class="summary-value">$' + d.total_revenue + '</span></div>' +
+          '<div class="summary-row"><span class="summary-label">總成本</span><span class="summary-value">$' + d.total_cost + '</span></div>' +
+          '<div class="summary-row total-row"><span class="summary-label">毛利</span><span class="summary-value">$' + d.total_gross_profit + '</span></div>' +
+          '<div class="summary-row total-row"><span class="summary-label">毛利率</span><span class="summary-value">' + d.margin_pct + '%</span></div>';
+        document.getElementById('reportItems').innerHTML = d.items.map((item, i) =>
+          '<tr><td>' + (i+1) + '</td><td>' + item.product_name + '</td><td>' + item.qty_sold + '</td><td>$' + (item.gross_profit || 0) + '</td></tr>'
+        ).join('');
+      } catch(e) {}
     }
     function showStatus(type, msg) {
       const el = document.getElementById('statusMsg');

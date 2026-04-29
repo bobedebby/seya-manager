@@ -177,6 +177,54 @@ app.post('/api/save-daily', async (req, res) => {
   }
 });
 
+
+app.get('/api/daily-report/:date', async (req, res) => {
+  try {
+    const { date } = req.params;
+
+    const { data: sales, error: salesError } = await supabase
+      .from('daily_sales')
+      .select('product_name, qty_sold, unit_price, cost, gross_profit')
+      .eq('sale_date', date)
+      .order('gross_profit', { ascending: false });
+
+    if (salesError) throw salesError;
+
+    const { data: cash, error: cashError } = await supabase
+      .from('daily_cash')
+      .select('*')
+      .eq('sale_date', date)
+      .single();
+
+    if (cashError && cashError.code !== 'PGRST116') throw cashError;
+
+    const total_cost = sales.reduce((sum, s) => sum + (s.cost || 0), 0);
+    const total_gross_profit = sales.reduce((sum, s) => sum + (s.gross_profit || 0), 0);
+    const total_revenue = cash?.total_revenue || 0;
+    const margin_pct = total_revenue > 0
+      ? Math.round(total_gross_profit / total_revenue * 1000) / 10
+      : 0;
+
+    res.json({
+      success: true,
+      data: {
+        sale_date: date,
+        total_revenue,
+        total_cost,
+        total_gross_profit,
+        margin_pct,
+        cash_amount: cash?.cash_amount || 0,
+        card_amount: cash?.card_amount || 0,
+        items: sales
+      }
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 if (process.env.NODE_ENV !== 'production') {
   app.listen(PORT, () => {
