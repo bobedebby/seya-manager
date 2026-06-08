@@ -295,6 +295,64 @@ app.get('/api/daily-report/:date', async (req, res) => {
   }
 });
 
+// ─── AI 營業報告 ─────────────────────────────────────────────────────
+app.post('/api/daily-ai-report', async (req, res) => {
+  try {
+    const { sale_date, total_revenue, margin_pct, items, periods } = req.body;
+
+    const topItems = (items || []).slice(0, 5)
+      .map((item, i) => `${i + 1}. ${item.product_name}（${item.qty_sold} 杯，毛利 $${item.gross_profit || 0}）`)
+      .join('\n');
+
+    const periodText = (periods || [])
+      .map(p => `${p.time}：$${p.amount}`)
+      .join('、') || '（無時段資料）';
+
+    const prompt = `你是一位咖啡廳顧問，請根據以下今日營業數據，用繁體中文撰寫一份簡短的每日營業報告。
+
+【今日數據】
+日期：${sale_date}
+總營業額：$${total_revenue}
+毛利率：${margin_pct}%
+品項銷售排行（前5名）：
+${topItems}
+時段營業額：${periodText}
+
+請輸出以下三個段落，每段 2～3 句，不需標題以外的格式：
+
+**今日總結**
+（簡述今日整體表現，提及營業額與毛利率是否達標或偏低）
+
+**值得注意的訊號**
+（從品項排行或時段分佈中找出一個具體現象，例如某品項銷售異常、某時段特別冷清）
+
+**明日建議**
+（根據今日數據，提出一個具體可執行的建議，例如推某品項、調整備料量）`;
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-opus-4-5',
+        max_tokens: 800,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const data = await response.json();
+    const report = data.content[0].text.trim();
+    res.json({ success: true, report });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 const PORT = process.env.NODE_ENV !== 'production' ? (process.env.PORT || 3000) : (process.env.PORT || 3000);
 if (process.env.NODE_ENV !== 'production') {
   app.listen(PORT, () => {

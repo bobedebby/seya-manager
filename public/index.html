@@ -36,6 +36,8 @@
     .status-loading { background: #fff3cd; color: #856404; }
     .status-success { background: #d4edda; color: #155724; }
     .status-error { background: #f8d7da; color: #721c24; }
+    .ai-report { font-size: 14px; line-height: 1.8; color: #333; white-space: pre-wrap; }
+    .ai-report-loading { text-align: center; color: #999; padding: 16px 0; font-size: 14px; }
   </style>
 </head>
 <body>
@@ -91,6 +93,11 @@
         <thead><tr><th>排行</th><th>品項</th><th>數量</th><th>毛利</th></tr></thead>
         <tbody id="reportItems"></tbody>
       </table>
+    </div>
+
+    <div class="card" id="aiReportArea" style="display:none">
+      <h2>🤖 AI 營業報告</h2>
+      <div id="aiReportBody"><div class="ai-report-loading">⏳ 報告生成中...</div></div>
     </div>
   </div>
   <script>
@@ -199,21 +206,20 @@
         const result = await res.json();
         if (!result.success) throw new Error(result.error);
         showStatus('success', '✅ 資料已儲存');
-        await loadDailyReport(parsedData.sale_date);
+        await loadDailyReport(parsedData.sale_date, parsedData.periods);
       } catch (err) {
         showStatus('error', '❌ 儲存失敗：' + err.message);
         document.getElementById('saveBtn').disabled = false;
       }
     }
 
-    async function loadDailyReport(date) {
+    async function loadDailyReport(date, periods) {
       try {
         const res = await fetch('/api/daily-report/' + date);
         const result = await res.json();
         if (!result.success) return;
         const d = result.data;
-        const el = document.getElementById('reportArea');
-        el.style.display = 'block';
+        document.getElementById('reportArea').style.display = 'block';
         document.getElementById('reportBody').innerHTML =
           '<div class="summary-row"><span class="summary-label">實收營業額</span><span class="summary-value">$' + d.total_revenue + '</span></div>' +
           '<div class="summary-row"><span class="summary-label">總成本</span><span class="summary-value">$' + d.total_cost + '</span></div>' +
@@ -222,6 +228,31 @@
         document.getElementById('reportItems').innerHTML = d.items.map((item, i) =>
           '<tr><td>' + (i+1) + '</td><td>' + item.product_name + '</td><td>' + item.qty_sold + '</td><td>$' + (item.gross_profit || 0) + '</td></tr>'
         ).join('');
+
+        // 顯示 AI 報告區塊並呼叫 API
+        document.getElementById('aiReportArea').style.display = 'block';
+        document.getElementById('aiReportBody').innerHTML = '<div class="ai-report-loading">⏳ 報告生成中...</div>';
+        try {
+          const aiRes = await fetch('/api/daily-ai-report', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sale_date: d.sale_date,
+              total_revenue: d.total_revenue,
+              margin_pct: d.margin_pct,
+              items: d.items,
+              periods: periods || []
+            })
+          });
+          const aiResult = await aiRes.json();
+          if (aiResult.success) {
+            document.getElementById('aiReportBody').innerHTML = '<div class="ai-report">' + aiResult.report.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') + '</div>';
+          } else {
+            document.getElementById('aiReportBody').innerHTML = '<div class="ai-report-loading">❌ 報告生成失敗</div>';
+          }
+        } catch(e) {
+          document.getElementById('aiReportBody').innerHTML = '<div class="ai-report-loading">❌ 報告生成失敗</div>';
+        }
       } catch(e) {}
     }
     function showStatus(type, msg) {
