@@ -182,19 +182,28 @@ app.post('/api/save-daily', async (req, res) => {
       cash_amount, card_amount, other_amount
     } = req.body;
 
-    // 1. 存 daily_cash
+    // 1. 無條件清除該日期舊數據（確保重複上傳會完整覆蓋，不疊加）
+    const { error: delCashError } = await supabase
+      .from('daily_cash')
+      .delete()
+      .eq('sale_date', sale_date);
+    if (delCashError) throw delCashError;
+
+    const { error: delSalesError } = await supabase
+      .from('daily_sales')
+      .delete()
+      .eq('sale_date', sale_date);
+    if (delSalesError) throw delSalesError;
+
+    // 2. 寫入新的 daily_cash
     const { error: cashError } = await supabase
       .from('daily_cash')
-      .upsert(
-        { sale_date, total_revenue, cash_amount, card_amount, other_amount },
-        { onConflict: 'sale_date' }
-      );
+      .insert({ sale_date, total_revenue, cash_amount, card_amount, other_amount });
 
     if (cashError) throw cashError;
 
-    // 2. 存 daily_sales（先清掉同日舊資料避免重複）
+    // 3. 寫入新的 daily_sales
     if (items && items.length > 0) {
-      await supabase.from('daily_sales').delete().eq('sale_date', sale_date);
 
       const salesData = items.map(item => ({
         sale_date,
@@ -208,13 +217,13 @@ app.post('/api/save-daily', async (req, res) => {
 
       if (salesError) throw salesError;
 
-      // 3. 用 SQL UPDATE JOIN 在資料庫層直接回填成本，完全繞過 Node 字串比對問題
+      // 4. 用 SQL UPDATE JOIN 在資料庫層直接回填成本，完全繞過 Node 字串比對問題
       const { error: fillError } = await supabase.rpc('backfill_daily_sales_cost', {
         p_sale_date: sale_date
       });
       if (fillError) console.warn('成本回填 RPC 失敗:', fillError.message);
 
-      // 4. 處理 PRODUCT_NAME_MAP 別名（POS 名稱與 products 不同的品項）
+      // 5. 處理 PRODUCT_NAME_MAP 別名（POS 名稱與 products 不同的品項）
       const aliasItems = items.filter(item => {
         const { resolvedName } = resolveProductName(item.product_name);
         return resolvedName !== item.product_name;
