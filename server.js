@@ -358,6 +358,9 @@ ${topItems}
 **明日建議**
 （根據今日數據，提出一個具體可執行的建議，例如推某品項、調整備料量）`;
 
+    console.log('[AI報告] 開始呼叫 Claude API, sale_date:', sale_date);
+    console.log('[AI報告] ANTHROPIC_API_KEY 存在:', !!process.env.ANTHROPIC_API_KEY);
+
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -373,11 +376,18 @@ ${topItems}
     });
 
     const data = await response.json();
+    console.log('[AI報告] Claude HTTP status:', response.status);
+    console.log('[AI報告] Claude 回傳:', JSON.stringify(data).substring(0, 500));
+
+    if (!response.ok || !data.content) {
+      throw new Error('Claude API 錯誤: ' + JSON.stringify(data));
+    }
+
     const report = data.content[0].text.trim();
     res.json({ success: true, report });
 
   } catch (error) {
-    console.error(error);
+    console.error('[AI報告] 失敗:', error.message);
     res.status(500).json({ success: false, error: error.message });
   }
 });
