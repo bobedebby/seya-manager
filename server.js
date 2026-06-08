@@ -295,6 +295,26 @@ app.get('/api/daily-report/:date', async (req, res) => {
   }
 });
 
+// ─── 數據覆蓋狀況 ────────────────────────────────────────────────────
+app.get('/api/data-coverage', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('daily_sales')
+      .select('sale_date')
+      .order('sale_date', { ascending: true });
+
+    if (error) throw error;
+
+    // 去重，只保留唯一日期
+    const dates = [...new Set(data.map(r => r.sale_date))];
+    res.json({ success: true, dates });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // ─── AI 營業報告 ─────────────────────────────────────────────────────
 app.post('/api/daily-ai-report', async (req, res) => {
   try {

@@ -38,11 +38,23 @@
     .status-error { background: #f8d7da; color: #721c24; }
     .ai-report { font-size: 14px; line-height: 1.8; color: #333; white-space: pre-wrap; }
     .ai-report-loading { text-align: center; color: #999; padding: 16px 0; font-size: 14px; }
+    .coverage-stat { font-size: 15px; font-weight: bold; margin-bottom: 12px; color: #333; }
+    .coverage-stat span { color: #34c759; }
+    .coverage-list { display: flex; flex-wrap: wrap; gap: 6px; }
+    .coverage-tag { font-size: 12px; padding: 4px 8px; border-radius: 6px; font-weight: 500; }
+    .coverage-tag.has { background: #d4edda; color: #155724; }
+    .coverage-tag.missing { background: #f8d7da; color: #721c24; }
   </style>
 </head>
 <body>
   <div class="header">☕ Seya Manager</div>
   <div class="container">
+    <div class="card" id="coverageCard">
+      <h2>📅 數據覆蓋狀況</h2>
+      <div id="coverageStat" class="coverage-stat" style="color:#999;font-weight:normal">載入中...</div>
+      <div id="coverageList" class="coverage-list"></div>
+    </div>
+
     <div class="card">
       <h2>📷 上傳今日三張明細</h2>
       <div class="upload-row">
@@ -261,6 +273,45 @@
       el.textContent = msg;
       el.style.display = 'block';
     }
+
+    async function loadCoverage() {
+      try {
+        const res = await fetch('/api/data-coverage');
+        const result = await res.json();
+        if (!result.success) throw new Error(result.error);
+
+        const coveredSet = new Set(result.dates);
+        if (coveredSet.size === 0) {
+          document.getElementById('coverageStat').textContent = '尚無任何數據';
+          return;
+        }
+
+        // 計算從最早日期到今天的所有日期
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const earliest = new Date(result.dates[0]);
+        const allDates = [];
+        for (let d = new Date(earliest); d <= today; d.setDate(d.getDate() + 1)) {
+          allDates.push(d.toISOString().slice(0, 10));
+        }
+
+        const total = allDates.length;
+        const covered = allDates.filter(d => coveredSet.has(d)).length;
+
+        document.getElementById('coverageStat').innerHTML =
+          '已覆蓋 <span>' + covered + ' 天</span>／共 ' + total + ' 天';
+
+        document.getElementById('coverageList').innerHTML = allDates.reverse().map(d => {
+          const has = coveredSet.has(d);
+          return '<span class="coverage-tag ' + (has ? 'has' : 'missing') + '">' + d + '</span>';
+        }).join('');
+
+      } catch (e) {
+        document.getElementById('coverageStat').textContent = '載入失敗：' + e.message;
+      }
+    }
+
+    loadCoverage();
   </script>
 </body>
 </html>
