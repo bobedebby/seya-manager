@@ -42,8 +42,9 @@
     .coverage-stat span { color: #34c759; }
     .coverage-list { display: flex; flex-wrap: wrap; gap: 6px; }
     .coverage-tag { font-size: 12px; padding: 4px 8px; border-radius: 6px; font-weight: 500; }
-    .coverage-tag.has { background: #d4edda; color: #155724; }
     .coverage-tag.missing { background: #f8d7da; color: #721c24; }
+    .editable { cursor: text; border-bottom: 1px dashed #bbb; display: inline-block; min-width: 16px; }
+    .editable:hover { border-bottom-color: #34c759; }
   </style>
 </head>
 <body>
@@ -186,24 +187,73 @@
         document.getElementById('analyzeBtn').disabled = false;
       }
     }
+    function editable(field, idx, key, val) {
+      const attrs = 'class="editable" data-field="' + field + '"' +
+        (idx !== null ? ' data-idx="' + idx + '"' : '') +
+        (key  !== null ? ' data-key="' + key + '"'  : '');
+      return '<span ' + attrs + '>' + val + '</span>';
+    }
+
+    function makeEditable(span) {
+      if (span.querySelector('input')) return;
+      const val = span.textContent;
+      const input = document.createElement('input');
+      input.value = val;
+      input.style.cssText = 'width:' + Math.max(span.offsetWidth + 20, 60) + 'px;border:none;border-bottom:2px solid #34c759;outline:none;font-size:inherit;font-weight:inherit;color:inherit;background:transparent;padding:0;';
+      span.textContent = '';
+      span.appendChild(input);
+      input.focus();
+      input.select();
+
+      function commit() {
+        const newVal = input.value.trim();
+        span.textContent = newVal || val;
+        const field = span.dataset.field;
+        const idx   = parseInt(span.dataset.idx);
+        const key   = span.dataset.key;
+        if (field === 'items') {
+          if (key === 'qty_sold') parsedData.items[idx].qty_sold = parseInt(newVal) || 0;
+          else parsedData.items[idx].product_name = newVal || parsedData.items[idx].product_name;
+        } else if (field === 'periods') {
+          parsedData.periods[idx].amount = parseInt(newVal) || 0;
+        } else {
+          parsedData[field] = parseInt(newVal) || 0;
+          parsedData.total_revenue = (parsedData.cash_amount || 0) + (parsedData.card_amount || 0) + (parsedData.other_amount || 0);
+          const totalEl = document.getElementById('totalRevenueDisplay');
+          if (totalEl) totalEl.textContent = '$' + parsedData.total_revenue;
+        }
+      }
+      input.addEventListener('blur', commit);
+      input.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } });
+    }
+
     function displayResult(data) {
       document.getElementById('itemsBody').innerHTML = data.items.map((item, i) =>
-        '<tr><td>'+(i+1)+'</td><td>'+item.product_name+'</td><td>'+item.qty_sold+'</td><td>$'+(item.revenue||'-')+'</td></tr>'
+        '<tr><td>'+(i+1)+'</td>' +
+        '<td>' + editable('items', i, 'product_name', item.product_name) + '</td>' +
+        '<td>' + editable('items', i, 'qty_sold', item.qty_sold) + '</td>' +
+        '<td>$'+(item.revenue||'-')+'</td></tr>'
       ).join('');
+
       document.getElementById('summaryBody').innerHTML =
         '<div class="summary-row"><span class="summary-label">日期</span><span class="summary-value">'+(data.sale_date||'-')+'</span></div>'+
-        '<div class="summary-row"><span class="summary-label">現金</span><span class="summary-value">$'+(data.cash_amount||0)+'</span></div>'+
-        '<div class="summary-row"><span class="summary-label">信用卡</span><span class="summary-value">$'+(data.card_amount||0)+'</span></div>'+
-        '<div class="summary-row"><span class="summary-label">其他</span><span class="summary-value">$'+(data.other_amount||0)+'</span></div>'+
-        '<div class="summary-row total-row"><span class="summary-label">總營業額</span><span class="summary-value">$'+(data.total_revenue||0)+'</span></div>';
+        '<div class="summary-row"><span class="summary-label">現金</span><span class="summary-value">$' + editable('cash_amount', null, null, data.cash_amount||0) + '</span></div>'+
+        '<div class="summary-row"><span class="summary-label">信用卡</span><span class="summary-value">$' + editable('card_amount', null, null, data.card_amount||0) + '</span></div>'+
+        '<div class="summary-row"><span class="summary-label">其他</span><span class="summary-value">$' + editable('other_amount', null, null, data.other_amount||0) + '</span></div>'+
+        '<div class="summary-row total-row"><span class="summary-label">總營業額</span><span class="summary-value" id="totalRevenueDisplay">$'+(data.total_revenue||0)+'</span></div>';
+
       if (data.periods && data.periods.length > 0) {
-        document.getElementById('periodBody').innerHTML = data.periods.map(p =>
-          '<div class="period-row"><span>'+p.time+'</span><span>$'+p.amount+'</span></div>'
+        document.getElementById('periodBody').innerHTML = data.periods.map((p, i) =>
+          '<div class="period-row"><span>'+p.time+'</span><span>$' + editable('periods', i, 'amount', p.amount) + '</span></div>'
         ).join('');
       } else {
         document.getElementById('periodBody').innerHTML = '<div class="period-row"><span style="color:#999">無時段資料</span></div>';
       }
+
       document.querySelectorAll('.result-area').forEach(el => el.style.display = 'block');
+      document.querySelectorAll('.editable').forEach(span => {
+        span.addEventListener('click', function() { makeEditable(span); });
+      });
     }
     async function saveData() {
       if (!parsedData) return;
@@ -301,10 +351,10 @@
         document.getElementById('coverageStat').innerHTML =
           '已覆蓋 <span>' + covered + ' 天</span>／共 ' + total + ' 天';
 
-        document.getElementById('coverageList').innerHTML = allDates.reverse().map(d => {
-          const has = coveredSet.has(d);
-          return '<span class="coverage-tag ' + (has ? 'has' : 'missing') + '">' + d + '</span>';
-        }).join('');
+        const missingDates = allDates.reverse().filter(d => !coveredSet.has(d));
+        document.getElementById('coverageList').innerHTML = missingDates.length === 0
+          ? '<span style="color:#34c759;font-size:13px">✅ 所有日期均有數據</span>'
+          : missingDates.map(d => '<span class="coverage-tag missing">' + d + '</span>').join('');
 
       } catch (e) {
         document.getElementById('coverageStat').textContent = '載入失敗：' + e.message;
