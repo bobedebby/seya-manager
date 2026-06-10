@@ -230,43 +230,28 @@ app.post('/api/save-daily', async (req, res) => {
       //    用 unit_cost（優先）或 cost_price 補填，同時處理 PRODUCT_NAME_MAP 別名
       const { data: savedRows } = await supabase
         .from('daily_sales')
-        .select('product_name, qty_sold, gross_profit, cost, unit_price')
+        .select('product_name, qty_sold, gross_profit, cost')
         .eq('sale_date', sale_date);
 
-      console.log('[回填] RPC 後 daily_sales 狀態:', JSON.stringify(
-        (savedRows || []).map(r => ({ name: r.product_name, qty: r.qty_sold, unit_price: r.unit_price, cost: r.cost, gross_profit: r.gross_profit }))
-      ));
-
       for (const row of (savedRows || [])) {
-        const isMoka = row.product_name.includes('摩卡');
-        if (isMoka) console.log(`[回填][摩卡] 處理前: product_name="${row.product_name}" gross_profit=${row.gross_profit} cost=${row.cost}`);
-
-        // 已有正確毛利則跳過（原條件：> 0，可能誤跳過 cost=0 的品項）
-        if (row.gross_profit != null && row.gross_profit > 0 && row.cost != null && row.cost > 0) {
-          if (isMoka) console.log(`[回填][摩卡] 跳過（gross_profit=${row.gross_profit} cost=${row.cost} 均已填）`);
-          continue;
-        }
+        // gross_profit 與 cost 都已填入才跳過，避免 RPC 以 cost=0 算出虛假正毛利
+        if (row.gross_profit != null && row.gross_profit > 0 && row.cost != null && row.cost > 0) continue;
 
         const { resolvedName } = resolveProductName(row.product_name);
-        if (isMoka) console.log(`[回填][摩卡] resolvedName="${resolvedName}"`);
-
-        const { data: p, error: pErr } = await supabase
+        const { data: p } = await supabase
           .from('products')
           .select('sell_price, unit_cost, cost_price')
           .eq('name', resolvedName)
           .single();
-        if (isMoka) console.log(`[回填][摩卡] products 查詢結果:`, JSON.stringify(p), 'error:', pErr?.message);
         if (!p) continue;
 
         // 優先用 unit_cost，沒有再用 cost_price
         const costPerUnit = parseFloat(p.unit_cost ?? p.cost_price) || 0;
-        if (isMoka) console.log(`[回填][摩卡] costPerUnit=${costPerUnit}`);
-        if (costPerUnit === 0) { if (isMoka) console.log('[回填][摩卡] costPerUnit=0，跳過'); continue; }
+        if (costPerUnit === 0) continue;
 
         const unit_price   = parseFloat(p.sell_price) || 0;
         const cost         = costPerUnit * row.qty_sold;
         const gross_profit = unit_price * row.qty_sold - cost;
-        if (isMoka) console.log(`[回填][摩卡] 將寫入: unit_price=${unit_price} cost=${cost} gross_profit=${gross_profit}`);
 
         await supabase
           .from('daily_sales')
