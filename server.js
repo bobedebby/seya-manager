@@ -500,9 +500,10 @@ app.post('/api/recalculate-costs', async (req, res) => {
     let updated = 0;
     for (const p of products) {
       try {
-        const formula   = JSON.parse(p.cost_formula);
+        // cost_formula 格式：純文字 'A1+B1+F2+F3'
+        const ids       = p.cost_formula.split('+').map(s => s.trim()).filter(Boolean);
         const unit_cost = Math.round(
-          formula.reduce((sum, item) => sum + (ingMap[item.id] || 0) * (item.amount || 0), 0)
+          ids.reduce((sum, id) => sum + (ingMap[id] || 0), 0)
           * 100) / 100;
         await supabase.from('products')
           .update({ unit_cost })
