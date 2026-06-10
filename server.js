@@ -620,14 +620,22 @@ app.post('/api/monthly-ai-report', async (req, res) => {
     const { month, total_revenue, margin_pct, prev_month, category_breakdown, top5_profit, top5_revenue } = req.body;
 
     const catLines = (category_breakdown || []).map(c => c.category + ' ' + c.pct + '% $' + Math.round(c.revenue)).join('、');
+    const prevRev  = prev_month?.total_revenue || 0;
+    const prevIncomplete = prevRev < total_revenue * 0.3;
+
+    const comparisonInstruction = prevIncomplete
+      ? `上月數據不完整（僅 $${prevRev}），請在第一行說明「上月數據尚不完整，本月為有效基準月」，不做月比月數字比較，分析專注於本月表現。`
+      : `上月：$${prevRev}，${prev_month?.margin_pct || 0}%，請在第一行與上月比較。`;
+
     const prompt = `你是咖啡廳顧問，根據以下月報，用繁體中文輸出剛好三行，不要任何標題、數字編號或符號：
-第一行：本月一句話總結（含營業額、毛利率，與上月比較）
-第二行：品類結構觀察（指出佔比最高與最低品類，說明健不健康）
-第三行：一個具體的下月調整建議
+第一行：本月一句話總結（含營業額、毛利率評估）
+第二行：品類結構觀察——指出佔比最高與最低品類，說明結構是否健康，若有明顯失衡給出具體原因
+第三行：一個具體可執行的下月調整建議——指出哪個品項或品類需要行動，以及具體怎麼做
+
+${comparisonInstruction}
 
 月份：${month}
 月營業額：$${total_revenue}，毛利率：${margin_pct}%
-上月：$${prev_month?.total_revenue || 0}，${prev_month?.margin_pct || 0}%
 品類分布：${catLines}
 毛利前五：${(top5_profit || []).map(i => i.name + '$' + Math.round(i.profit)).join('、')}
 營收前五：${(top5_revenue || []).map(i => i.name + '$' + Math.round(i.revenue)).join('、')}`;
@@ -635,7 +643,7 @@ app.post('/api/monthly-ai-report', async (req, res) => {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model: 'claude-opus-4-5', max_tokens: 300, messages: [{ role: 'user', content: prompt }] })
+      body: JSON.stringify({ model: 'claude-opus-4-5', max_tokens: 400, messages: [{ role: 'user', content: prompt }] })
     });
     const data = await response.json();
     if (!response.ok || !data.content) throw new Error(JSON.stringify(data));
@@ -646,22 +654,27 @@ app.post('/api/monthly-ai-report', async (req, res) => {
 
 app.post('/api/weekly-ai-report', async (req, res) => {
   try {
-    const { week_start, week_end, total_revenue, margin_pct, top5_profit, prev_week, daily_breakdown } = req.body;
+    const { week_start, week_end, total_revenue, margin_pct, top5_profit, top5_revenue, prev_week, daily_breakdown } = req.body;
+
+    const prevWkRev     = prev_week?.total_revenue || 0;
+    const prevWkMgn     = prev_week?.margin_pct    || 0;
+    const revenueChange = prevWkRev > 0 ? Math.round((total_revenue - prevWkRev) / prevWkRev * 100) : null;
+    const marginChange  = prevWkMgn > 0 ? (margin_pct - prevWkMgn).toFixed(1) : null;
 
     const prompt = `你是咖啡廳顧問，根據以下週報，用繁體中文輸出剛好兩行，不要任何標題或符號：
-第一行：本週一句話總結（含營業額和毛利率評估，並與上週比較）
-第二行：一個具體警訊，若無異常就輸出「本週無明顯異常」
+第一行：本週一句話總結——不只重述數字，要說明趨勢意義（例如：哪類品項帶動了成長，或哪個因素導致下滑）
+第二行：一個具體可執行的行動建議——指出是哪個品項或哪天的表現值得注意，並說明店主應該採取什麼具體動作（不要只說「需注意」）
 
 週期：${week_start} ～ ${week_end}
-週營業額：$${total_revenue}，毛利率：${margin_pct}%
-上週：$${prev_week?.total_revenue || 0}，${prev_week?.margin_pct || 0}%
+週營業額：$${total_revenue}${revenueChange !== null ? '（vs上週' + (revenueChange >= 0 ? '+' : '') + revenueChange + '%）' : ''}，毛利率：${margin_pct}%${marginChange !== null ? '（vs上週' + (parseFloat(marginChange) >= 0 ? '+' : '') + marginChange + '%）' : ''}
 每日：${(daily_breakdown || []).map(d => d.date.slice(5) + '=$' + d.revenue).join(' ')}
-毛利前五：${(top5_profit || []).map(i => i.name + '$' + i.profit).join('、')}`;
+毛利前五：${(top5_profit || []).map(i => i.name + '$' + i.profit).join('、')}
+營收前五：${(top5_revenue || []).map(i => i.name + '$' + Math.round(i.revenue)).join('、')}`;
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model: 'claude-opus-4-5', max_tokens: 200, messages: [{ role: 'user', content: prompt }] })
+      body: JSON.stringify({ model: 'claude-opus-4-5', max_tokens: 350, messages: [{ role: 'user', content: prompt }] })
     });
     const data = await response.json();
     if (!response.ok || !data.content) throw new Error(JSON.stringify(data));
