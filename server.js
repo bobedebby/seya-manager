@@ -444,6 +444,180 @@ ${topItems}
   }
 });
 
+// ─── 週/月報 輔助函數 ─────────────────────────────────────────────────
+function getWeekBounds(dateStr) {
+  const d = new Date(dateStr);
+  const day = d.getDay(); // 0=Sun
+  const diffToMon = day === 0 ? -6 : 1 - day;
+  const mon = new Date(d); mon.setDate(d.getDate() + diffToMon);
+  const sat = new Date(mon); sat.setDate(mon.getDate() + 5);
+  return { start: mon.toISOString().slice(0, 10), end: sat.toISOString().slice(0, 10) };
+}
+
+function aggregateItems(sales) {
+  const map = {};
+  (sales || []).forEach(r => {
+    if (!map[r.product_name]) map[r.product_name] = { qty: 0, revenue: 0, profit: 0 };
+    map[r.product_name].qty     += r.qty_sold || 0;
+    map[r.product_name].revenue += (r.unit_price || 0) * (r.qty_sold || 0);
+    map[r.product_name].profit  += r.gross_profit || 0;
+  });
+  return Object.entries(map).map(([name, v]) => ({ name, ...v }));
+}
+
+// ─── 週報 ─────────────────────────────────────────────────────────────
+app.get('/api/weekly-report', async (req, res) => {
+  try {
+    const { date } = req.query;
+    if (!date) return res.status(400).json({ error: '請提供 date' });
+
+    const { start, end } = getWeekBounds(date);
+    const prevDate = new Date(start); prevDate.setDate(prevDate.getDate() - 1);
+    const prev = getWeekBounds(prevDate.toISOString().slice(0, 10));
+
+    const [{ data: sales }, { data: cash }, { data: prevSales }, { data: prevCash }] = await Promise.all([
+      supabase.from('daily_sales').select('sale_date,product_name,qty_sold,unit_price,gross_profit').gte('sale_date', start).lte('sale_date', end),
+      supabase.from('daily_cash').select('sale_date,total_revenue').gte('sale_date', start).lte('sale_date', end),
+      supabase.from('daily_sales').select('gross_profit').gte('sale_date', prev.start).lte('sale_date', prev.end),
+      supabase.from('daily_cash').select('total_revenue').gte('sale_date', prev.start).lte('sale_date', prev.end),
+    ]);
+
+    const total_revenue      = (cash || []).reduce((s, r) => s + (r.total_revenue || 0), 0);
+    const total_gross_profit = (sales || []).reduce((s, r) => s + (r.gross_profit || 0), 0);
+    const margin_pct  = total_revenue > 0 ? Math.round(total_gross_profit / total_revenue * 1000) / 10 : 0;
+    const days_count  = (cash || []).length;
+    const avg_order_value = days_count > 0 ? Math.round(total_revenue / days_count) : 0;
+
+    // Daily breakdown Mon-Sat
+    const dailyMap = {};
+    (cash  || []).forEach(r => { dailyMap[r.sale_date] = { revenue: r.total_revenue || 0, profit: 0 }; });
+    (sales || []).forEach(r => { if (!dailyMap[r.sale_date]) dailyMap[r.sale_date] = { revenue: 0, profit: 0 }; dailyMap[r.sale_date].profit += r.gross_profit || 0; });
+
+    const daily_breakdown = [];
+    const startD = new Date(start);
+    for (let i = 0; i < 6; i++) {
+      const d = new Date(startD); d.setDate(startD.getDate() + i);
+      const ds = d.toISOString().slice(0, 10);
+      daily_breakdown.push({ date: ds, revenue: dailyMap[ds]?.revenue || 0, profit: dailyMap[ds]?.profit || 0 });
+    }
+
+    const items = aggregateItems(sales);
+    const top5_revenue = [...items].sort((a, b) => b.revenue - a.revenue).slice(0, 5);
+    const top5_profit  = [...items].sort((a, b) => b.profit  - a.profit ).slice(0, 5);
+
+    const prev_revenue = (prevCash  || []).reduce((s, r) => s + (r.total_revenue || 0), 0);
+    const prev_profit  = (prevSales || []).reduce((s, r) => s + (r.gross_profit  || 0), 0);
+    const prev_days    = (prevCash  || []).length;
+
+    res.json({ success: true, data: {
+      week_start: start, week_end: end,
+      total_revenue, total_gross_profit, margin_pct, avg_order_value,
+      daily_breakdown, top5_revenue, top5_profit,
+      prev_week: {
+        total_revenue: prev_revenue,
+        margin_pct: prev_revenue > 0 ? Math.round(prev_profit / prev_revenue * 1000) / 10 : 0,
+        avg_order_value: prev_days > 0 ? Math.round(prev_revenue / prev_days) : 0
+      }
+    }});
+  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
+// ─── 月報 ─────────────────────────────────────────────────────────────
+app.get('/api/monthly-report', async (req, res) => {
+  try {
+    const { month } = req.query;
+    if (!month) return res.status(400).json({ error: '請提供 month' });
+
+    const start = month + '-01';
+    const endD  = new Date(month + '-01'); endD.setMonth(endD.getMonth() + 1); endD.setDate(0);
+    const end   = endD.toISOString().slice(0, 10);
+
+    const prevD  = new Date(month + '-01'); prevD.setMonth(prevD.getMonth() - 1);
+    const prevM  = prevD.toISOString().slice(0, 7);
+    const prevS  = prevM + '-01';
+    const prevED = new Date(prevS); prevED.setMonth(prevED.getMonth() + 1); prevED.setDate(0);
+    const prevE  = prevED.toISOString().slice(0, 10);
+
+    const [{ data: sales }, { data: cash }, { data: prevSales }, { data: prevCash }, { data: products }] = await Promise.all([
+      supabase.from('daily_sales').select('sale_date,product_name,qty_sold,unit_price,gross_profit').gte('sale_date', start).lte('sale_date', end),
+      supabase.from('daily_cash').select('sale_date,total_revenue').gte('sale_date', start).lte('sale_date', end),
+      supabase.from('daily_sales').select('gross_profit').gte('sale_date', prevS).lte('sale_date', prevE),
+      supabase.from('daily_cash').select('total_revenue').gte('sale_date', prevS).lte('sale_date', prevE),
+      supabase.from('products').select('name,category'),
+    ]);
+
+    const catMap = {};
+    (products || []).forEach(p => { catMap[p.name] = p.category || '其他'; });
+
+    const total_revenue      = (cash  || []).reduce((s, r) => s + (r.total_revenue || 0), 0);
+    const total_gross_profit = (sales || []).reduce((s, r) => s + (r.gross_profit  || 0), 0);
+    const margin_pct      = total_revenue > 0 ? Math.round(total_gross_profit / total_revenue * 1000) / 10 : 0;
+    const days_count      = (cash || []).length;
+    const avg_order_value = days_count > 0 ? Math.round(total_revenue / days_count) : 0;
+
+    // Weekly breakdown
+    const weekMap = {};
+    (cash  || []).forEach(r => { const k = getWeekBounds(r.sale_date); const wk = k.start; if (!weekMap[wk]) weekMap[wk] = { week_start: k.start, week_end: k.end, revenue: 0, profit: 0 }; weekMap[wk].revenue += r.total_revenue || 0; });
+    (sales || []).forEach(r => { const k = getWeekBounds(r.sale_date); const wk = k.start; if (!weekMap[wk]) weekMap[wk] = { week_start: k.start, week_end: k.end, revenue: 0, profit: 0 }; weekMap[wk].profit  += r.gross_profit  || 0; });
+    const weekly_breakdown = Object.values(weekMap).sort((a, b) => a.week_start.localeCompare(b.week_start));
+
+    // Category breakdown
+    const catRevMap = {};
+    (sales || []).forEach(r => {
+      const cat = catMap[r.product_name] || '其他';
+      if (!catRevMap[cat]) catRevMap[cat] = { revenue: 0, profit: 0 };
+      catRevMap[cat].revenue += (r.unit_price || 0) * (r.qty_sold || 0);
+      catRevMap[cat].profit  += r.gross_profit || 0;
+    });
+    const category_breakdown = Object.entries(catRevMap)
+      .map(([category, v]) => ({ category, ...v, pct: total_revenue > 0 ? Math.round(v.revenue / total_revenue * 1000) / 10 : 0 }))
+      .filter(c => c.revenue > 0).sort((a, b) => b.revenue - a.revenue);
+
+    const items = aggregateItems(sales);
+    const top5_revenue   = [...items].sort((a, b) => b.revenue - a.revenue).slice(0, 5);
+    const top5_profit    = [...items].sort((a, b) => b.profit  - a.profit ).slice(0, 5);
+    const bottom5_profit = [...items].filter(i => i.profit > 0).sort((a, b) => a.profit - b.profit).slice(0, 5);
+
+    const prev_revenue = (prevCash  || []).reduce((s, r) => s + (r.total_revenue || 0), 0);
+    const prev_profit  = (prevSales || []).reduce((s, r) => s + (r.gross_profit  || 0), 0);
+
+    res.json({ success: true, data: {
+      month, start, end,
+      total_revenue, total_gross_profit, margin_pct, avg_order_value,
+      weekly_breakdown, category_breakdown,
+      top5_revenue, top5_profit, bottom5_profit,
+      prev_month: { total_revenue: prev_revenue, margin_pct: prev_revenue > 0 ? Math.round(prev_profit / prev_revenue * 1000) / 10 : 0 }
+    }});
+  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
+// ─── 週報 AI 小結 ─────────────────────────────────────────────────────
+app.post('/api/weekly-ai-report', async (req, res) => {
+  try {
+    const { week_start, week_end, total_revenue, margin_pct, top5_profit, prev_week, daily_breakdown } = req.body;
+
+    const prompt = `你是咖啡廳顧問，根據以下週報，用繁體中文輸出剛好兩行，不要任何標題或符號：
+第一行：本週一句話總結（含營業額和毛利率評估，並與上週比較）
+第二行：一個具體警訊，若無異常就輸出「本週無明顯異常」
+
+週期：${week_start} ～ ${week_end}
+週營業額：$${total_revenue}，毛利率：${margin_pct}%
+上週：$${prev_week?.total_revenue || 0}，${prev_week?.margin_pct || 0}%
+每日：${(daily_breakdown || []).map(d => d.date.slice(5) + '=$' + d.revenue).join(' ')}
+毛利前五：${(top5_profit || []).map(i => i.name + '$' + i.profit).join('、')}`;
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({ model: 'claude-opus-4-5', max_tokens: 200, messages: [{ role: 'user', content: prompt }] })
+    });
+    const data = await response.json();
+    if (!response.ok || !data.content) throw new Error(JSON.stringify(data));
+    const lines = data.content[0].text.trim().split('\n').filter(l => l.trim());
+    res.json({ success: true, summary: lines[0] || '', warning: lines[1] || '' });
+  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
 // ─── 原物料管理 ───────────────────────────────────────────────────────
 app.get('/api/ingredients', async (req, res) => {
   try {

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>月報 — Seya Manager</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, sans-serif; background: #f5f5f5; color: #333; }
+    .header { background: #1a1a1a; color: white; padding: 16px 20px; font-size: 18px; font-weight: bold; display: flex; align-items: center; gap: 12px; }
+    .back-btn { background: none; border: none; color: white; font-size: 22px; cursor: pointer; padding: 0 4px; line-height: 1; }
+    .container { padding: 20px; max-width: 600px; margin: 0 auto; }
+    .card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+    .card h2 { font-size: 15px; margin-bottom: 14px; color: #666; }
+    .input-row { display: flex; gap: 10px; align-items: center; }
+    .input-row input { flex: 1; border: 1px solid #ddd; border-radius: 8px; padding: 10px 12px; font-size: 14px; }
+    .btn { padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; font-weight: bold; cursor: pointer; background: #1a1a1a; color: white; white-space: nowrap; }
+    .btn:disabled { background: #ccc; cursor: not-allowed; }
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .stat-box { background: #f9f9f9; border-radius: 10px; padding: 14px; }
+    .stat-label { font-size: 12px; color: #999; margin-bottom: 4px; }
+    .stat-value { font-size: 22px; font-weight: bold; color: #1a1a1a; }
+    .stat-value.green { color: #34c759; }
+    .stat-diff { font-size: 11px; margin-top: 4px; }
+    .stat-diff.up   { color: #34c759; }
+    .stat-diff.down { color: #ff3b30; }
+    .stat-diff.flat { color: #999; }
+    .week-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+    .week-row:last-child { border-bottom: none; }
+    .week-label { color: #666; }
+    .week-rev { font-weight: bold; }
+    .week-pft { color: #34c759; font-size: 12px; }
+    .cat-row { padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
+    .cat-row:last-child { border-bottom: none; }
+    .cat-header { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 5px; }
+    .cat-name { font-weight: 500; }
+    .cat-pct { color: #999; font-size: 12px; }
+    .cat-rev { font-weight: bold; }
+    .bar-wrap { background: #f0f0f0; border-radius: 4px; height: 8px; overflow: hidden; }
+    .bar-fill { background: #34c759; height: 100%; border-radius: 4px; }
+    .rank-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .rank-table th { background: #f5f5f5; padding: 7px 8px; text-align: left; font-weight: 600; color: #555; }
+    .rank-table td { padding: 7px 8px; border-bottom: 1px solid #eee; }
+    .rank-table tr:last-child td { border-bottom: none; }
+    .bottom-row td { color: #ff3b30; }
+    .bottom-row td:first-child { color: #ff3b30; }
+    .section-hidden { display: none; }
+    .loading-txt { color: #999; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <button class="back-btn" onclick="location.href='/'">‹</button>
+    📈 月報
+  </div>
+  <div class="container">
+    <div class="card">
+      <div class="input-row">
+        <input type="month" id="monthInput">
+        <button class="btn" id="loadBtn" onclick="loadReport()">查看月報</button>
+      </div>
+    </div>
+
+    <div id="reportSections" class="section-hidden">
+      <div class="card">
+        <h2>📈 本月概覽</h2>
+        <div class="stats-grid" id="statsGrid"></div>
+      </div>
+
+      <div class="card">
+        <h2>📅 週別明細</h2>
+        <div id="weeklyBreakdown"></div>
+      </div>
+
+      <div class="card">
+        <h2>🗂 品類分布</h2>
+        <div id="categoryBreakdown"></div>
+      </div>
+
+      <div class="card">
+        <h2>🏆 本月營收前五</h2>
+        <table class="rank-table">
+          <thead><tr><th>#</th><th>品項</th><th>數量</th><th>營收</th></tr></thead>
+          <tbody id="top5Revenue"></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>💰 本月毛利前五</h2>
+        <table class="rank-table">
+          <thead><tr><th>#</th><th>品項</th><th>數量</th><th>毛利</th></tr></thead>
+          <tbody id="top5Profit"></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>⚠️ 需關注品項（毛利偏低）</h2>
+        <table class="rank-table">
+          <thead><tr><th>#</th><th>品項</th><th>數量</th><th>毛利</th></tr></thead>
+          <tbody id="bottom5Profit"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <script>
+    // 預設本月
+    const today = new Date();
+    document.getElementById('monthInput').value = today.toISOString().slice(0, 7);
+
+    function diff(curr, prev) {
+      if (!prev || prev === 0) return { text: '', cls: 'flat' };
+      const pct = Math.round((curr - prev) / prev * 100);
+      if (pct > 0) return { text: '▲ ' + pct + '%', cls: 'up' };
+      if (pct < 0) return { text: '▼ ' + Math.abs(pct) + '%', cls: 'down' };
+      return { text: '持平', cls: 'flat' };
+    }
+
+    async function loadReport() {
+      const month = document.getElementById('monthInput').value;
+      if (!month) { alert('請選擇月份'); return; }
+      const btn = document.getElementById('loadBtn');
+      btn.disabled = true; btn.textContent = '載入中...';
+      try {
+        const res = await fetch('/api/monthly-report?month=' + month);
+        const result = await res.json();
+        if (!result.success) throw new Error(result.error);
+        renderReport(result.data);
+        document.getElementById('reportSections').style.display = 'block';
+        document.getElementById('reportSections').classList.remove('section-hidden');
+      } catch (e) {
+        alert('載入失敗：' + e.message);
+      } finally {
+        btn.disabled = false; btn.textContent = '查看月報';
+      }
+    }
+
+    function statBox(label, value, diffObj, green) {
+      return '<div class="stat-box">' +
+        '<div class="stat-label">' + label + '</div>' +
+        '<div class="stat-value' + (green ? ' green' : '') + '">' + value + '</div>' +
+        (diffObj.text ? '<div class="stat-diff ' + diffObj.cls + '">vs 上月 ' + diffObj.text + '</div>' : '') +
+      '</div>';
+    }
+
+    function renderReport(d) {
+      const revDiff = diff(d.total_revenue, d.prev_month.total_revenue);
+      const mgnDiff = diff(d.margin_pct, d.prev_month.margin_pct);
+
+      document.getElementById('statsGrid').innerHTML =
+        statBox('月營業額', '$' + d.total_revenue.toLocaleString(), revDiff, false) +
+        statBox('月毛利', '$' + d.total_gross_profit.toLocaleString(), { text: '', cls: 'flat' }, true) +
+        statBox('毛利率', d.margin_pct + '%', mgnDiff, true) +
+        statBox('日均營業額', '$' + d.avg_order_value.toLocaleString(), { text: '', cls: 'flat' }, false);
+
+      // Weekly breakdown
+      document.getElementById('weeklyBreakdown').innerHTML = d.weekly_breakdown.map(w =>
+        '<div class="week-row">' +
+        '<span class="week-label">' + w.week_start.slice(5) + ' ～ ' + w.week_end.slice(5) + '</span>' +
+        '<span class="week-pft">+$' + Math.round(w.profit) + '</span>' +
+        '<span class="week-rev">$' + w.revenue.toLocaleString() + '</span>' +
+        '</div>'
+      ).join('');
+
+      // Category breakdown
+      const maxRev = Math.max(...d.category_breakdown.map(c => c.revenue), 1);
+      document.getElementById('categoryBreakdown').innerHTML = d.category_breakdown.map(c =>
+        '<div class="cat-row">' +
+        '<div class="cat-header"><span class="cat-name">' + c.category + '</span>' +
+        '<span><span class="cat-rev">$' + Math.round(c.revenue).toLocaleString() + '</span> <span class="cat-pct">' + c.pct + '%</span></span></div>' +
+        '<div class="bar-wrap"><div class="bar-fill" style="width:' + Math.round(c.revenue / maxRev * 100) + '%"></div></div>' +
+        '</div>'
+      ).join('');
+
+      document.getElementById('top5Revenue').innerHTML = d.top5_revenue.map((item, i) =>
+        '<tr><td>' + (i+1) + '</td><td>' + item.name + '</td><td>' + item.qty + '</td><td>$' + Math.round(item.revenue) + '</td></tr>'
+      ).join('');
+      document.getElementById('top5Profit').innerHTML = d.top5_profit.map((item, i) =>
+        '<tr><td>' + (i+1) + '</td><td>' + item.name + '</td><td>' + item.qty + '</td><td>$' + Math.round(item.profit) + '</td></tr>'
+      ).join('');
+      document.getElementById('bottom5Profit').innerHTML = d.bottom5_profit.map((item, i) =>
+        '<tr class="bottom-row"><td>' + (i+1) + '</td><td>' + item.name + '</td><td>' + item.qty + '</td><td>$' + Math.round(item.profit) + '</td></tr>'
+      ).join('') || '<tr><td colspan="4" style="color:#999;text-align:center">無數據</td></tr>';
+    }
+  </script>
+</body>
+</html>

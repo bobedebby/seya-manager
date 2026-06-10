@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>週報 — Seya Manager</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, sans-serif; background: #f5f5f5; color: #333; }
+    .header { background: #1a1a1a; color: white; padding: 16px 20px; font-size: 18px; font-weight: bold; display: flex; align-items: center; gap: 12px; }
+    .back-btn { background: none; border: none; color: white; font-size: 22px; cursor: pointer; padding: 0 4px; line-height: 1; }
+    .container { padding: 20px; max-width: 600px; margin: 0 auto; }
+    .card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+    .card h2 { font-size: 15px; margin-bottom: 14px; color: #666; }
+    .input-row { display: flex; gap: 10px; align-items: center; }
+    .input-row input { flex: 1; border: 1px solid #ddd; border-radius: 8px; padding: 10px 12px; font-size: 14px; }
+    .btn { padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; font-weight: bold; cursor: pointer; background: #1a1a1a; color: white; white-space: nowrap; }
+    .btn:disabled { background: #ccc; cursor: not-allowed; }
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .stat-box { background: #f9f9f9; border-radius: 10px; padding: 14px; }
+    .stat-label { font-size: 12px; color: #999; margin-bottom: 4px; }
+    .stat-value { font-size: 22px; font-weight: bold; color: #1a1a1a; }
+    .stat-value.green { color: #34c759; }
+    .stat-diff { font-size: 11px; margin-top: 4px; }
+    .stat-diff.up   { color: #34c759; }
+    .stat-diff.down { color: #ff3b30; }
+    .stat-diff.flat { color: #999; }
+    .day-row { display: flex; align-items: center; padding: 7px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; gap: 8px; }
+    .day-row:last-child { border-bottom: none; }
+    .day-name { width: 52px; color: #666; flex-shrink: 0; }
+    .bar-wrap { flex: 1; background: #f0f0f0; border-radius: 4px; height: 10px; overflow: hidden; }
+    .bar-fill { background: #34c759; height: 100%; border-radius: 4px; transition: width 0.4s; }
+    .day-amt { width: 60px; text-align: right; font-weight: bold; }
+    .day-pft { width: 55px; text-align: right; color: #34c759; font-size: 12px; }
+    .rank-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .rank-table th { background: #f5f5f5; padding: 7px 8px; text-align: left; font-weight: 600; color: #555; }
+    .rank-table td { padding: 7px 8px; border-bottom: 1px solid #eee; }
+    .rank-table tr:last-child td { border-bottom: none; }
+    .ai-box { background: #f0faf4; border-radius: 10px; padding: 14px; }
+    .ai-summary { font-size: 14px; font-weight: 600; color: #1a1a1a; line-height: 1.6; margin-bottom: 8px; }
+    .ai-warning { font-size: 13px; color: #856404; background: #fff3cd; border-radius: 6px; padding: 8px 10px; }
+    .loading-txt { color: #999; font-size: 13px; }
+    .section-hidden { display: none; }
+    .week-title { font-size: 13px; color: #999; margin-bottom: 14px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <button class="back-btn" onclick="location.href='/'">‹</button>
+    📊 週報
+  </div>
+  <div class="container">
+    <div class="card">
+      <div class="input-row">
+        <input type="date" id="dateInput">
+        <button class="btn" id="loadBtn" onclick="loadReport()">查看週報</button>
+      </div>
+    </div>
+
+    <div id="reportSections" class="section-hidden">
+      <div class="card">
+        <h2>📊 本週概覽</h2>
+        <div class="week-title" id="weekTitle"></div>
+        <div class="stats-grid" id="statsGrid"></div>
+      </div>
+
+      <div class="card">
+        <h2>📅 每日營業額</h2>
+        <div id="dailyBreakdown"></div>
+      </div>
+
+      <div class="card">
+        <h2>🏆 本週營收前五</h2>
+        <table class="rank-table">
+          <thead><tr><th>#</th><th>品項</th><th>數量</th><th>營收</th></tr></thead>
+          <tbody id="top5Revenue"></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>💰 本週毛利前五</h2>
+        <table class="rank-table">
+          <thead><tr><th>#</th><th>品項</th><th>數量</th><th>毛利</th></tr></thead>
+          <tbody id="top5Profit"></tbody>
+        </table>
+      </div>
+
+      <div class="card" id="aiCard">
+        <h2>🤖 AI 週報小結</h2>
+        <div id="aiResult"><div class="loading-txt">⏳ 生成中...</div></div>
+      </div>
+    </div>
+  </div>
+  <script>
+    // 預設今天
+    const today = new Date();
+    document.getElementById('dateInput').value = today.toISOString().slice(0, 10);
+
+    const DAYS = ['一', '二', '三', '四', '五', '六'];
+
+    function diff(curr, prev) {
+      if (!prev || prev === 0) return { text: '', cls: 'flat' };
+      const pct = Math.round((curr - prev) / prev * 100);
+      if (pct > 0) return { text: '▲ ' + pct + '%', cls: 'up' };
+      if (pct < 0) return { text: '▼ ' + Math.abs(pct) + '%', cls: 'down' };
+      return { text: '持平', cls: 'flat' };
+    }
+
+    let reportData = null;
+
+    async function loadReport() {
+      const date = document.getElementById('dateInput').value;
+      if (!date) { alert('請選擇日期'); return; }
+      const btn = document.getElementById('loadBtn');
+      btn.disabled = true; btn.textContent = '載入中...';
+      try {
+        const res = await fetch('/api/weekly-report?date=' + date);
+        const result = await res.json();
+        if (!result.success) throw new Error(result.error);
+        reportData = result.data;
+        renderReport(reportData);
+        document.getElementById('reportSections').style.display = 'block';
+        document.getElementById('reportSections').classList.remove('section-hidden');
+        loadAI(reportData);
+      } catch (e) {
+        alert('載入失敗：' + e.message);
+      } finally {
+        btn.disabled = false; btn.textContent = '查看週報';
+      }
+    }
+
+    function renderReport(d) {
+      document.getElementById('weekTitle').textContent = d.week_start + ' ～ ' + d.week_end;
+
+      const revDiff = diff(d.total_revenue, d.prev_week.total_revenue);
+      const mgnDiff = diff(d.margin_pct, d.prev_week.margin_pct);
+
+      document.getElementById('statsGrid').innerHTML =
+        statBox('週營業額', '$' + d.total_revenue.toLocaleString(), revDiff, false) +
+        statBox('週毛利', '$' + d.total_gross_profit.toLocaleString(), { text: '', cls: 'flat' }, true) +
+        statBox('毛利率', d.margin_pct + '%', mgnDiff, true) +
+        statBox('日均營業額', '$' + d.avg_order_value.toLocaleString(), diff(d.avg_order_value, d.prev_week.avg_order_value), false);
+
+      const maxRev = Math.max(...d.daily_breakdown.map(x => x.revenue), 1);
+      document.getElementById('dailyBreakdown').innerHTML = d.daily_breakdown.map((day, i) => {
+        const pct = Math.round(day.revenue / maxRev * 100);
+        return '<div class="day-row">' +
+          '<span class="day-name">週' + DAYS[i] + '</span>' +
+          '<div class="bar-wrap"><div class="bar-fill" style="width:' + pct + '%"></div></div>' +
+          '<span class="day-amt">$' + day.revenue + '</span>' +
+          '<span class="day-pft">+$' + day.profit + '</span>' +
+        '</div>';
+      }).join('');
+
+      document.getElementById('top5Revenue').innerHTML = d.top5_revenue.map((item, i) =>
+        '<tr><td>' + (i+1) + '</td><td>' + item.name + '</td><td>' + item.qty + '</td><td>$' + Math.round(item.revenue) + '</td></tr>'
+      ).join('');
+      document.getElementById('top5Profit').innerHTML = d.top5_profit.map((item, i) =>
+        '<tr><td>' + (i+1) + '</td><td>' + item.name + '</td><td>' + item.qty + '</td><td>$' + Math.round(item.profit) + '</td></tr>'
+      ).join('');
+    }
+
+    function statBox(label, value, diffObj, green) {
+      return '<div class="stat-box">' +
+        '<div class="stat-label">' + label + '</div>' +
+        '<div class="stat-value' + (green ? ' green' : '') + '">' + value + '</div>' +
+        (diffObj.text ? '<div class="stat-diff ' + diffObj.cls + '">vs 上週 ' + diffObj.text + '</div>' : '') +
+      '</div>';
+    }
+
+    async function loadAI(d) {
+      document.getElementById('aiResult').innerHTML = '<div class="loading-txt">⏳ 生成中...</div>';
+      try {
+        const res = await fetch('/api/weekly-ai-report', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(d)
+        });
+        const result = await res.json();
+        if (!result.success) throw new Error(result.error);
+        document.getElementById('aiResult').innerHTML =
+          '<div class="ai-box">' +
+          '<div class="ai-summary">' + result.summary + '</div>' +
+          '<div class="ai-warning">⚠️ ' + result.warning + '</div>' +
+          '</div>';
+      } catch (e) {
+        document.getElementById('aiResult').innerHTML = '<div class="loading-txt">❌ ' + e.message + '</div>';
+      }
+    }
+  </script>
+</body>
+</html>
