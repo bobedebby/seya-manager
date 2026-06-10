@@ -24,6 +24,7 @@ const PRODUCT_NAME_MAP = {
   '重拿鐵':       '重拿鐵咖啡',
   '單品豆1/4磅':  '配方豆1/4磅',
   '柚香灑酒拿鐵': '柚香灑酒拿鐵',  // 強制對應，防止字元比對失敗
+  '柚香灑酒摩卡': '柚香灑酒摩卡',  // 強制對應，防止字元比對失敗
   '果乾磅蛋糕':   '山午磅蛋糕',
 };
 
@@ -223,28 +224,38 @@ app.post('/api/save-daily', async (req, res) => {
       });
       if (fillError) console.warn('成本回填 RPC 失敗:', fillError.message);
 
-      // 5. 處理 PRODUCT_NAME_MAP 別名（POS 名稱與 products 不同的品項）
-      const aliasItems = items.filter(item => {
-        const { resolvedName } = resolveProductName(item.product_name);
-        return resolvedName !== item.product_name;
-      });
+      // 5. 補充回填：查出仍未填成本的品項（gross_profit 為 null 或 0）
+      //    用 unit_cost（優先）或 cost_price 補填，同時處理 PRODUCT_NAME_MAP 別名
+      const { data: savedRows } = await supabase
+        .from('daily_sales')
+        .select('product_name, qty_sold, gross_profit')
+        .eq('sale_date', sale_date);
 
-      for (const item of aliasItems) {
-        const { resolvedName } = resolveProductName(item.product_name);
+      for (const row of (savedRows || [])) {
+        // 已有正確毛利則跳過
+        if (row.gross_profit != null && row.gross_profit > 0) continue;
+
+        const { resolvedName } = resolveProductName(row.product_name);
         const { data: p } = await supabase
           .from('products')
-          .select('sell_price, cost_price')
+          .select('sell_price, unit_cost, cost_price')
           .eq('name', resolvedName)
           .single();
         if (!p) continue;
-        const unit_price  = parseFloat(p.sell_price);
-        const cost        = parseFloat(p.cost_price) * item.qty_sold;
-        const gross_profit = unit_price * item.qty_sold - cost;
+
+        // 優先用 unit_cost，沒有再用 cost_price
+        const costPerUnit = parseFloat(p.unit_cost ?? p.cost_price) || 0;
+        if (costPerUnit === 0) continue;
+
+        const unit_price   = parseFloat(p.sell_price) || 0;
+        const cost         = costPerUnit * row.qty_sold;
+        const gross_profit = unit_price * row.qty_sold - cost;
+
         await supabase
           .from('daily_sales')
           .update({ unit_price, cost, gross_profit })
           .eq('sale_date', sale_date)
-          .eq('product_name', item.product_name);
+          .eq('product_name', row.product_name);
       }
     }
 
