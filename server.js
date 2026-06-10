@@ -304,6 +304,49 @@ app.get('/api/daily-report/:date', async (req, res) => {
   }
 });
 
+// ─── CSV 匯出 ────────────────────────────────────────────────────────
+app.get('/api/export-csv', async (req, res) => {
+  try {
+    const { start_date, end_date } = req.query;
+    if (!start_date || !end_date) {
+      return res.status(400).json({ error: '請提供 start_date 和 end_date' });
+    }
+
+    const { data, error } = await supabase
+      .from('daily_sales')
+      .select('sale_date, product_name, qty_sold, unit_price, cost, gross_profit')
+      .gte('sale_date', start_date)
+      .lte('sale_date', end_date)
+      .order('sale_date', { ascending: true })
+      .order('gross_profit', { ascending: false });
+
+    if (error) throw error;
+
+    const headers = ['sale_date', 'product_name', 'qty_sold', 'unit_price', 'cost', 'gross_profit'];
+    const rows = data.map(row =>
+      headers.map(h => {
+        const v = row[h] ?? '';
+        // 若含逗號或引號則加引號包裹
+        return String(v).includes(',') || String(v).includes('"')
+          ? '"' + String(v).replace(/"/g, '""') + '"'
+          : String(v);
+      }).join(',')
+    );
+
+    // 加 BOM 讓 Excel 正確辨識 UTF-8
+    const csv = '﻿' + headers.join(',') + '\n' + rows.join('\n');
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition',
+      `attachment; filename="seya-sales-${start_date}-${end_date}.csv"`);
+    res.send(csv);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ─── 數據覆蓋狀況 ────────────────────────────────────────────────────
 app.get('/api/data-coverage', async (req, res) => {
   try {

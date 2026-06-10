@@ -45,6 +45,9 @@
     .coverage-tag.missing { background: #f8d7da; color: #721c24; }
     .editable { cursor: text; border-bottom: 1px dashed #bbb; display: inline-block; min-width: 16px; }
     .editable:hover { border-bottom-color: #34c759; }
+    .date-row { display: flex; gap: 12px; margin-bottom: 12px; align-items: center; }
+    .date-row label { font-size: 13px; color: #666; white-space: nowrap; }
+    .date-row input[type="date"] { flex: 1; border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px; font-size: 14px; color: #333; }
   </style>
 </head>
 <body>
@@ -54,6 +57,17 @@
       <h2>📅 數據覆蓋狀況</h2>
       <div id="coverageStat" class="coverage-stat" style="color:#999;font-weight:normal">載入中...</div>
       <div id="coverageList" class="coverage-list"></div>
+    </div>
+
+    <div class="card">
+      <h2>📥 匯出數據</h2>
+      <div class="date-row">
+        <label>開始</label>
+        <input type="date" id="exportStart">
+        <label>結束</label>
+        <input type="date" id="exportEnd">
+      </div>
+      <button class="btn btn-primary" onclick="exportCSV()">⬇ 下載 Excel</button>
     </div>
 
     <div class="card">
@@ -359,6 +373,30 @@
       } catch (e) {
         document.getElementById('coverageStat').textContent = '載入失敗：' + e.message;
       }
+    }
+
+    // 預設日期：本月第一天 ～ 今天
+    (function() {
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const dd = String(today.getDate()).padStart(2, '0');
+      document.getElementById('exportEnd').value = yyyy + '-' + mm + '-' + dd;
+      document.getElementById('exportStart').value = yyyy + '-' + mm + '-01';
+    })();
+
+    function exportCSV() {
+      const start = document.getElementById('exportStart').value;
+      const end   = document.getElementById('exportEnd').value;
+      if (!start || !end) { alert('請選擇日期範圍'); return; }
+      if (start > end)    { alert('開始日期不能晚於結束日期'); return; }
+      const url = '/api/export-csv?start_date=' + start + '&end_date=' + end;
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'seya-sales-' + start + '-' + end + '.csv';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     }
 
     loadCoverage();
