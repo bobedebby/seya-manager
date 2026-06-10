@@ -28,6 +28,14 @@ const PRODUCT_NAME_MAP = {
   '果乾磅蛋糕':        '山午磅蛋糕',
   '晨醞厚吐司-明太子':  '晨醞厚吐司',
   '晨醞厚吐司-藍莓奶酪': '晨醞厚吐司',
+  // 柚香灑酒 OCR 亂字變體
+  '柚香瀧酒拿鐵':      '柚香灑酒拿鐵',
+  '柚香麗酒拿鐵':      '柚香灑酒拿鐵',
+  '柚香瀧酒摩卡':      '柚香灑酒摩卡',
+  '柚香麗酒摩卡':      '柚香灑酒摩卡',
+  // 其他 OCR 亂字變體
+  '酣韻芝麻拿鐵':      '醇韻芝麻拿鐵',
+  '初日黑咖啡-墨比':   '初日黑咖啡-墨止',
 };
 
 // POS 名稱含以下關鍵字時 → 對應到 products 表的「晨醞厚吐司」（成本40，售價45）
@@ -564,7 +572,8 @@ app.get('/api/monthly-report', async (req, res) => {
     // Category breakdown
     const catRevMap = {};
     (sales || []).forEach(r => {
-      const cat = catMap[r.product_name] || '其他';
+      const resolved = resolveProductName(r.product_name).resolvedName;
+      const cat = catMap[r.product_name] || catMap[resolved] || '其他';
       if (!catRevMap[cat]) catRevMap[cat] = { revenue: 0, profit: 0 };
       catRevMap[cat].revenue += (r.unit_price || 0) * (r.qty_sold || 0);
       catRevMap[cat].profit  += r.gross_profit || 0;
