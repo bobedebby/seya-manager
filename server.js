@@ -446,19 +446,11 @@ app.get('/api/ingredients', async (req, res) => {
 app.put('/api/ingredients/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { purchase_price } = req.body;
-
-    // 先取 quantity 計算 unit_cost
-    const { data: ing, error: fetchErr } = await supabase
-      .from('ingredients').select('quantity').eq('id', id).single();
-    if (fetchErr) throw fetchErr;
-
-    const quantityNum = parseFloat(ing.quantity) || 1;
-    const unit_cost   = Math.round(purchase_price / quantityNum * 10000) / 10000;
+    const { unit_cost } = req.body;
 
     const { error } = await supabase
       .from('ingredients')
-      .update({ purchase_price, unit_cost })
+      .update({ unit_cost })
       .eq('id', id);
     if (error) throw error;
 
