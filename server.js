@@ -479,10 +479,11 @@ function getWeekBounds(dateStr) {
 function aggregateItems(sales) {
   const map = {};
   (sales || []).forEach(r => {
-    if (!map[r.product_name]) map[r.product_name] = { qty: 0, revenue: 0, profit: 0 };
-    map[r.product_name].qty     += r.qty_sold || 0;
-    map[r.product_name].revenue += (r.unit_price || 0) * (r.qty_sold || 0);
-    map[r.product_name].profit  += r.gross_profit || 0;
+    const name = resolveProductName(r.product_name).resolvedName;
+    if (!map[name]) map[name] = { qty: 0, revenue: 0, profit: 0 };
+    map[name].qty     += r.qty_sold || 0;
+    map[name].revenue += (r.unit_price || 0) * (r.qty_sold || 0);
+    map[name].profit  += r.gross_profit || 0;
   });
   return Object.entries(map).map(([name, v]) => ({ name, ...v }));
 }
