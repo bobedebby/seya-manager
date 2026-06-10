@@ -431,6 +431,92 @@ ${topItems}
   }
 });
 
+// ─── 原物料管理 ───────────────────────────────────────────────────────
+app.get('/api/ingredients', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('ingredients').select('*').order('id');
+    if (error) throw error;
+    res.json({ success: true, data });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.put('/api/ingredients/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { purchase_price } = req.body;
+
+    // 先取 quantity 計算 unit_cost
+    const { data: ing, error: fetchErr } = await supabase
+      .from('ingredients').select('quantity').eq('id', id).single();
+    if (fetchErr) throw fetchErr;
+
+    const quantityNum = parseFloat(ing.quantity) || 1;
+    const unit_cost   = Math.round(purchase_price / quantityNum * 10000) / 10000;
+
+    const { error } = await supabase
+      .from('ingredients')
+      .update({ purchase_price, unit_cost })
+      .eq('id', id);
+    if (error) throw error;
+
+    res.json({ success: true, unit_cost });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// ─── 品項成本主檔 ──────────────────────────────────────────────────────
+app.get('/api/products-master', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .select('name, sell_price, cost_formula, unit_cost, category')
+      .order('category').order('name');
+    if (error) throw error;
+    res.json({ success: true, data });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.post('/api/recalculate-costs', async (req, res) => {
+  try {
+    // 取所有原物料 unit_cost
+    const { data: ings, error: ingsErr } = await supabase
+      .from('ingredients').select('id, unit_cost');
+    if (ingsErr) throw ingsErr;
+
+    const ingMap = {};
+    ings.forEach(i => { ingMap[i.id] = parseFloat(i.unit_cost) || 0; });
+
+    // 取所有有 cost_formula 的品項
+    const { data: products, error: prodErr } = await supabase
+      .from('products').select('name, cost_formula').not('cost_formula', 'is', null);
+    if (prodErr) throw prodErr;
+
+    let updated = 0;
+    for (const p of products) {
+      try {
+        const formula   = JSON.parse(p.cost_formula);
+        const unit_cost = Math.round(
+          formula.reduce((sum, item) => sum + (ingMap[item.id] || 0) * (item.amount || 0), 0)
+          * 100) / 100;
+        await supabase.from('products')
+          .update({ unit_cost })
+          .eq('name', p.name);
+        updated++;
+      } catch (_) { /* formula 格式錯誤跳過 */ }
+    }
+
+    res.json({ success: true, updated });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 const PORT = process.env.NODE_ENV !== 'production' ? (process.env.PORT || 3000) : (process.env.PORT || 3000);
 if (process.env.NODE_ENV !== 'production') {
   app.listen(PORT, () => {
