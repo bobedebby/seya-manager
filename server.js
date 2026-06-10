@@ -36,6 +36,20 @@ const PRODUCT_NAME_MAP = {
   // 其他 OCR 亂字變體
   '酣韻芝麻拿鐵':      '醇韻芝麻拿鐵',
   '初日黑咖啡-墨比':   '初日黑咖啡-墨止',
+  // 晨霧厚土司 OCR 亂字變體
+  '晨霧厚土司-花生':   '晨醞厚吐司',
+  '晨霧厚土司-蒜香':   '晨醞厚吐司',
+  '晨霧厚土司-奶酥':   '晨醞厚吐司',
+  '晨霧厚土司-巧克力':  '晨醞厚吐司',
+  '晨霧厚土司-明太子':  '晨醞厚吐司',
+  // 晨曦厚土司 OCR 亂字變體
+  '晨曦厚土司-花生':   '晨醞厚吐司',
+  '晨曦厚土司-蒜香':   '晨醞厚吐司',
+  '晨曦厚土司-奶酥':   '晨醞厚吐司',
+  '晨曦厚土司-巧克力':  '晨醞厚吐司',
+  // 晨醫厚土司 OCR 亂字變體
+  '晨醫厚土司-花生':   '晨醞厚吐司',
+  '晨醫厚土司-蒜香':   '晨醞厚吐司',
 };
 
 // POS 名稱含以下關鍵字時 → 對應到 products 表的「晨醞厚吐司」（成本40，售價45）
@@ -601,6 +615,35 @@ app.get('/api/monthly-report', async (req, res) => {
 });
 
 // ─── 週報 AI 小結 ─────────────────────────────────────────────────────
+app.post('/api/monthly-ai-report', async (req, res) => {
+  try {
+    const { month, total_revenue, margin_pct, prev_month, category_breakdown, top5_profit, top5_revenue } = req.body;
+
+    const catLines = (category_breakdown || []).map(c => c.category + ' ' + c.pct + '% $' + Math.round(c.revenue)).join('、');
+    const prompt = `你是咖啡廳顧問，根據以下月報，用繁體中文輸出剛好三行，不要任何標題、數字編號或符號：
+第一行：本月一句話總結（含營業額、毛利率，與上月比較）
+第二行：品類結構觀察（指出佔比最高與最低品類，說明健不健康）
+第三行：一個具體的下月調整建議
+
+月份：${month}
+月營業額：$${total_revenue}，毛利率：${margin_pct}%
+上月：$${prev_month?.total_revenue || 0}，${prev_month?.margin_pct || 0}%
+品類分布：${catLines}
+毛利前五：${(top5_profit || []).map(i => i.name + '$' + Math.round(i.profit)).join('、')}
+營收前五：${(top5_revenue || []).map(i => i.name + '$' + Math.round(i.revenue)).join('、')}`;
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({ model: 'claude-opus-4-5', max_tokens: 300, messages: [{ role: 'user', content: prompt }] })
+    });
+    const data = await response.json();
+    if (!response.ok || !data.content) throw new Error(JSON.stringify(data));
+    const lines = data.content[0].text.trim().split('\n').filter(l => l.trim());
+    res.json({ success: true, summary: lines[0] || '', category_note: lines[1] || '', suggestion: lines[2] || '' });
+  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
 app.post('/api/weekly-ai-report', async (req, res) => {
   try {
     const { week_start, week_end, total_revenue, margin_pct, top5_profit, prev_week, daily_breakdown } = req.body;

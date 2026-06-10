@@ -45,6 +45,10 @@
     .bottom-row td { color: #ff3b30; }
     .bottom-row td:first-child { color: #ff3b30; }
     .section-hidden { display: none; }
+    .ai-box { background: #f0faf4; border-radius: 10px; padding: 14px; }
+    .ai-summary { font-size: 14px; font-weight: 600; color: #1a1a1a; line-height: 1.6; margin-bottom: 6px; }
+    .ai-note { font-size: 13px; color: #555; line-height: 1.6; margin-bottom: 6px; }
+    .ai-suggestion { font-size: 13px; color: #856404; background: #fff3cd; border-radius: 6px; padding: 8px 10px; }
     .loading-txt { color: #999; font-size: 13px; }
   </style>
 </head>
@@ -100,6 +104,11 @@
           <tbody id="bottom5Profit"></tbody>
         </table>
       </div>
+
+      <div class="card" id="aiCard">
+        <h2>🤖 AI 月報建議</h2>
+        <div id="aiResult"><div class="loading-txt">⏳ 生成中...</div></div>
+      </div>
     </div>
   </div>
   <script>
@@ -127,6 +136,7 @@
         renderReport(result.data);
         document.getElementById('reportSections').style.display = 'block';
         document.getElementById('reportSections').classList.remove('section-hidden');
+        loadAI(result.data);
       } catch (e) {
         alert('載入失敗：' + e.message);
       } finally {
@@ -180,6 +190,27 @@
       document.getElementById('bottom5Profit').innerHTML = d.bottom5_profit.map((item, i) =>
         '<tr class="bottom-row"><td>' + (i+1) + '</td><td>' + item.name + '</td><td>' + item.qty + '</td><td>$' + Math.round(item.profit) + '</td></tr>'
       ).join('') || '<tr><td colspan="4" style="color:#999;text-align:center">無數據</td></tr>';
+    }
+
+    async function loadAI(d) {
+      document.getElementById('aiResult').innerHTML = '<div class="loading-txt">⏳ 生成中...</div>';
+      try {
+        const res = await fetch('/api/monthly-ai-report', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(d)
+        });
+        const result = await res.json();
+        if (!result.success) throw new Error(result.error);
+        document.getElementById('aiResult').innerHTML =
+          '<div class="ai-box">' +
+          '<div class="ai-summary">' + result.summary + '</div>' +
+          '<div class="ai-note">' + result.category_note + '</div>' +
+          '<div class="ai-suggestion">💡 ' + result.suggestion + '</div>' +
+          '</div>';
+      } catch (e) {
+        document.getElementById('aiResult').innerHTML = '<div class="loading-txt">❌ ' + e.message + '</div>';
+      }
     }
   </script>
 </body>
