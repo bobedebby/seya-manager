@@ -177,10 +177,12 @@
       }
     }
     async function compressImage(file) {
-      return new Promise((resolve) => {
+      return new Promise((resolve, reject) => {
         const reader = new FileReader();
+        reader.onerror = () => resolve(file); // fallback to original
         reader.onload = function(e) {
           const img = new Image();
+          img.onerror = () => resolve(file); // fallback to original
           img.onload = function() {
             const canvas = document.createElement('canvas');
             const maxSize = 1200;
@@ -192,7 +194,10 @@
             canvas.width = w;
             canvas.height = h;
             canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-            canvas.toBlob((blob) => resolve(new File([blob], file.name, {type: 'image/jpeg'})), 'image/jpeg', 0.7);
+            canvas.toBlob((blob) => {
+              if (!blob) { resolve(file); return; } // iOS Safari fallback
+              resolve(new File([blob], file.name, {type: 'image/jpeg'}));
+            }, 'image/jpeg', 0.7);
           };
           img.src = e.target.result;
         };
@@ -217,7 +222,12 @@
         parsedData = result.data;
         parsedData.is_complete = Object.keys(uploadedFiles).length >= 3;
         displayResult(parsedData);
-        showStatus('success', '✅ 解析完成，請確認後儲存');
+        if (parsedData.parse_errors) {
+          const failed = Object.keys(parsedData.parse_errors).join('、');
+          showStatus('error', '⚠️ 部分圖片解析失敗（' + failed + '），其餘數據已顯示，請手動補填或重新上傳失敗的圖片');
+        } else {
+          showStatus('success', '✅ 解析完成，請確認後儲存');
+        }
       } catch (err) {
         showStatus('error', '❌ 解析失敗：' + err.message);
         document.getElementById('analyzeBtn').disabled = false;
