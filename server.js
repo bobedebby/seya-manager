@@ -386,17 +386,19 @@ app.get('/api/export-csv', async (req, res) => {
 // ─── 數據覆蓋狀況 ────────────────────────────────────────────────────
 app.get('/api/data-coverage', async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('daily_cash')
-      .select('sale_date, is_complete')
-      .order('sale_date', { ascending: true });
+    const [{ data: cashData, error: cashError }, { data: nbData, error: nbError }] = await Promise.all([
+      supabase.from('daily_cash').select('sale_date, is_complete').order('sale_date', { ascending: true }),
+      supabase.from('non_business_days').select('date'),
+    ]);
+    if (cashError) throw cashError;
+    if (nbError) throw nbError;
 
-    if (error) throw error;
-
-    // 回傳每個日期及其完整度
     const dateMap = {};
-    (data || []).forEach(r => {
+    (cashData || []).forEach(r => {
       dateMap[r.sale_date] = r.is_complete === false ? 'incomplete' : 'complete';
+    });
+    (nbData || []).forEach(r => {
+      if (!dateMap[r.date]) dateMap[r.date] = 'non_business';
     });
     res.json({ success: true, dateMap });
 
@@ -404,6 +406,25 @@ app.get('/api/data-coverage', async (req, res) => {
     console.error(error);
     res.status(500).json({ success: false, error: error.message });
   }
+});
+
+app.post('/api/non-business-day', async (req, res) => {
+  try {
+    const { date } = req.body;
+    if (!date) return res.status(400).json({ success: false, error: '請提供 date' });
+    const { error } = await supabase.from('non_business_days').upsert({ date });
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
+app.delete('/api/non-business-day/:date', async (req, res) => {
+  try {
+    const { date } = req.params;
+    const { error } = await supabase.from('non_business_days').delete().eq('date', date);
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ success: false, error: e.message }); }
 });
 
 // ─── AI 營業報告 ─────────────────────────────────────────────────────

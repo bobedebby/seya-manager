@@ -362,6 +362,20 @@
       el.style.display = 'block';
     }
 
+    async function markNonBusinessDay(date) {
+      if (!confirm('確認將 ' + date + ' 標記為非營業日？')) return;
+      try {
+        const res = await fetch('/api/non-business-day', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ date })
+        });
+        const result = await res.json();
+        if (!result.success) throw new Error(result.error);
+        loadCoverage();
+      } catch (e) { alert('標記失敗：' + e.message); }
+    }
+
     async function loadCoverage() {
       try {
         const res = await fetch('/api/data-coverage');
@@ -384,25 +398,31 @@
           allDates.push(d.toISOString().slice(0, 10));
         }
 
-        const total      = allDates.length;
-        const complete   = allDates.filter(d => dateMap[d] === 'complete').length;
-        const incomplete = allDates.filter(d => dateMap[d] === 'incomplete').length;
-        const missing    = allDates.filter(d => !dateMap[d]).length;
+        const complete    = allDates.filter(d => dateMap[d] === 'complete').length;
+        const incomplete  = allDates.filter(d => dateMap[d] === 'incomplete').length;
+        const nonBusiness = allDates.filter(d => dateMap[d] === 'non_business').length;
+        const missing     = allDates.filter(d => !dateMap[d]).length;
 
         document.getElementById('coverageStat').innerHTML =
           '<span style="color:#155724">✅ 已完整 ' + complete + ' 天</span>　' +
           '<span style="color:#856404">⚠️ 不完整 ' + incomplete + ' 天</span>　' +
-          '<span style="color:#721c24">❌ 缺少 ' + missing + ' 天</span>';
+          '<span style="color:#721c24">❌ 缺少 ' + missing + ' 天</span>' +
+          (nonBusiness > 0 ? '　<span style="color:#555">🚫 非營業日 ' + nonBusiness + ' 天</span>' : '');
 
-        const needAttention = allDates.slice().reverse().filter(d => dateMap[d] !== 'complete');
+        const needAttention = allDates.slice().reverse().filter(d => dateMap[d] === 'missing' || !dateMap[d] || dateMap[d] === 'incomplete');
         const details = document.getElementById('coverageDetails');
         if (needAttention.length === 0) {
           details.style.display = 'none';
         } else {
           details.style.display = '';
           document.getElementById('coverageList').innerHTML = needAttention.map(d => {
-            if (dateMap[d] === 'incomplete') return '<span class="coverage-tag incomplete">' + d + ' ⚠️</span>';
-            return '<span class="coverage-tag missing">' + d + '</span>';
+            if (dateMap[d] === 'incomplete') {
+              return '<span class="coverage-tag incomplete">' + d + ' ⚠️</span>';
+            }
+            return '<span class="coverage-tag missing" style="display:inline-flex;align-items:center;gap:4px">' +
+              d +
+              '<button onclick="markNonBusinessDay(\'' + d + '\')" style="background:#721c24;color:white;border:none;border-radius:4px;font-size:10px;padding:1px 5px;cursor:pointer;white-space:nowrap">非營業日</button>' +
+              '</span>';
           }).join('');
         }
 
