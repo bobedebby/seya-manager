@@ -188,12 +188,17 @@
         const result = await res.json();
         if (!result.success) throw new Error(result.error);
 
-        // 找出 text block
-        const textBlock = (result.content || []).find(b => b.type === 'text');
-        if (!textBlock) throw new Error('回傳內容不含文字結果');
+        // 合併所有 text block
+        const rawText = (result.content || [])
+          .filter(b => b.type === 'text')
+          .map(b => b.text)
+          .join('');
+        if (!rawText) throw new Error('回傳內容不含文字結果');
 
-        const clean = textBlock.text.replace(/```json|```/g, '').trim();
-        const parsed = JSON.parse(clean);
+        const match = rawText.match(/\{[\s\S]*\}/);
+        const jsonStr = match ? match[0] : null;
+        if (!jsonStr) throw new Error('無法從回傳內容中找到 JSON');
+        const parsed = JSON.parse(jsonStr);
         const brands = parsed.brands || [];
         if (!brands.length) throw new Error('沒有找到品牌資料');
 
