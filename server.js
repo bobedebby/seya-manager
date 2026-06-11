@@ -873,6 +873,39 @@ app.post('/api/curation', async (req, res) => {
   }
 });
 
+app.get('/api/curation/brands', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('curation_brands')
+      .select('*')
+      .order('score_total', { ascending: false });
+    if (error) throw error;
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.post('/api/curation/save', async (req, res) => {
+  try {
+    const { name, country, category, ig, website,
+            score_fit, score_commercial, score_heat, score_total,
+            why_seya, target_customer, display, procurement, contact, seya_voice } = req.body;
+    const { error } = await supabase
+      .from('curation_brands')
+      .upsert({
+        name, country, category, ig, website,
+        score_fit, score_commercial, score_heat, score_total,
+        why_seya, target_customer, display, procurement, contact, seya_voice,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'name' });
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 const PORT = process.env.NODE_ENV !== 'production' ? (process.env.PORT || 3000) : (process.env.PORT || 3000);
 if (process.env.NODE_ENV !== 'production') {
   app.listen(PORT, () => {
