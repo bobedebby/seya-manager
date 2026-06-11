@@ -123,6 +123,15 @@ async function analyzeImageWithClaude(buffer, mimeType, imageType) {
 }`
   };
 
+  const messages = [{
+    role: 'user',
+    content: [
+      { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64Image } },
+      { type: 'text', text: prompts[imageType] }
+    ]
+  }];
+  console.log(`[analyze] ${imageType} 傳送 media_type=${mimeType} base64長度=${base64Image.length}`);
+
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -130,25 +139,13 @@ async function analyzeImageWithClaude(buffer, mimeType, imageType) {
       'x-api-key': process.env.ANTHROPIC_API_KEY,
       'anthropic-version': '2023-06-01'
     },
-    body: JSON.stringify({
-      model: 'claude-opus-4-5',
-      max_tokens: 2000,
-      messages: [{
-        role: 'user',
-        content: [
-          {
-            type: 'image',
-            source: { type: 'base64', media_type: mimeType, data: base64Image }
-          },
-          { type: 'text', text: prompts[imageType] }
-        ]
-      }]
-    })
+    body: JSON.stringify({ model: 'claude-opus-4-5', max_tokens: 2000, messages })
   });
 
   const data = await response.json();
+  console.log(`[analyze] ${imageType} HTTP=${response.status} 原始回傳:`, JSON.stringify(data).substring(0, 500));
+  if (!data.content) throw new Error(`Claude API 錯誤: ${JSON.stringify(data)}`);
   const text = data.content[0].text.trim();
-  console.log('Claude回傳[' + imageType + ']:', text.substring(0, 300));
   const clean = text.replace(/```json|```/g, '').trim();
   return JSON.parse(clean);
 }
@@ -160,6 +157,11 @@ app.post('/api/analyze-multi', upload.array('images', 3), async (req, res) => {
     const types = req.body.types;
     const typeArray = Array.isArray(types) ? types : [types];
 
+    console.log(`[analyze-multi] 收到 ${files ? files.length : 0} 個檔案, types=${JSON.stringify(types)}`);
+    (files || []).forEach((f, i) => {
+      console.log(`[analyze-multi] 檔案[${i}] originalname=${f.originalname} mimetype=${f.mimetype} size=${f.size}bytes`);
+    });
+
     const results = {};
     const errors = {};
 
@@ -170,6 +172,7 @@ app.post('/api/analyze-multi', upload.array('images', 3), async (req, res) => {
         const parsed = await analyzeImageWithClaude(file.buffer, file.mimetype, imageType);
         results[imageType] = parsed;
       } catch (e) {
+        console.error(`[analyze-multi] ${imageType} 解析失敗:`, e.message);
         errors[imageType] = e.message;
       }
     }
