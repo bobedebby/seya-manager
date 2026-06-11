@@ -66,7 +66,12 @@
     <div class="card" id="coverageCard">
       <h2>📅 數據覆蓋狀況</h2>
       <div id="coverageStat" class="coverage-stat" style="color:#999;font-weight:normal">載入中...</div>
-      <div id="coverageList" class="coverage-list"></div>
+      <details id="coverageDetails" style="margin-top:10px">
+        <summary style="cursor:pointer;font-size:13px;color:#856404;font-weight:600;list-style:none;display:flex;align-items:center;gap:4px">
+          ⚠️ 待補齊日期
+        </summary>
+        <div id="coverageList" class="coverage-list" style="margin-top:10px"></div>
+      </details>
     </div>
 
     <div class="card">
@@ -385,17 +390,21 @@
         const missing    = allDates.filter(d => !dateMap[d]).length;
 
         document.getElementById('coverageStat').innerHTML =
-          '共 ' + total + ' 天｜' +
-          '<span style="color:#155724">✅ 完整 ' + complete + '</span>　' +
-          (incomplete > 0 ? '<span style="color:#856404">⚠️ 不完整 ' + incomplete + '</span>　' : '') +
-          (missing    > 0 ? '<span style="color:#721c24">❌ 缺少 '   + missing    + '</span>'    : '');
+          '<span style="color:#155724">✅ 已完整 ' + complete + ' 天</span>　' +
+          '<span style="color:#856404">⚠️ 不完整 ' + incomplete + ' 天</span>　' +
+          '<span style="color:#721c24">❌ 缺少 ' + missing + ' 天</span>';
 
-        document.getElementById('coverageList').innerHTML = allDates.slice().reverse().map(d => {
-          const status = dateMap[d];
-          if (status === 'complete')   return '<span class="coverage-tag complete">'   + d + '</span>';
-          if (status === 'incomplete') return '<span class="coverage-tag incomplete">' + d + ' ⚠️</span>';
-          return '<span class="coverage-tag missing">' + d + '</span>';
-        }).join('');
+        const needAttention = allDates.slice().reverse().filter(d => dateMap[d] !== 'complete');
+        const details = document.getElementById('coverageDetails');
+        if (needAttention.length === 0) {
+          details.style.display = 'none';
+        } else {
+          details.style.display = '';
+          document.getElementById('coverageList').innerHTML = needAttention.map(d => {
+            if (dateMap[d] === 'incomplete') return '<span class="coverage-tag incomplete">' + d + ' ⚠️</span>';
+            return '<span class="coverage-tag missing">' + d + '</span>';
+          }).join('');
+        }
 
       } catch (e) {
         document.getElementById('coverageStat').textContent = '載入失敗：' + e.message;
