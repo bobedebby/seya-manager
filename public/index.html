@@ -246,9 +246,11 @@
           parsedData.periods[idx].amount = parseInt(newVal) || 0;
         } else {
           parsedData[field] = parseInt(newVal) || 0;
-          parsedData.total_revenue = (parsedData.cash_amount || 0) + (parsedData.card_amount || 0) + (parsedData.other_amount || 0);
-          const totalEl = document.getElementById('totalRevenueDisplay');
-          if (totalEl) totalEl.textContent = '$' + parsedData.total_revenue;
+          if (field !== 'total_revenue') {
+            parsedData.total_revenue = (parsedData.cash_amount || 0) + (parsedData.card_amount || 0) + (parsedData.other_amount || 0);
+            const totalEl = document.querySelector('[data-field="total_revenue"]');
+            if (totalEl) totalEl.textContent = parsedData.total_revenue;
+          }
         }
       }
       input.addEventListener('blur', commit);
@@ -268,7 +270,7 @@
         '<div class="summary-row"><span class="summary-label">現金</span><span class="summary-value">$' + editable('cash_amount', null, null, data.cash_amount||0) + '</span></div>'+
         '<div class="summary-row"><span class="summary-label">信用卡</span><span class="summary-value">$' + editable('card_amount', null, null, data.card_amount||0) + '</span></div>'+
         '<div class="summary-row"><span class="summary-label">其他</span><span class="summary-value">$' + editable('other_amount', null, null, data.other_amount||0) + '</span></div>'+
-        '<div class="summary-row total-row"><span class="summary-label">總營業額</span><span class="summary-value" id="totalRevenueDisplay">$'+(data.total_revenue||0)+'</span></div>';
+        '<div class="summary-row total-row"><span class="summary-label">總營業額</span><span class="summary-value">$' + editable('total_revenue', null, null, data.total_revenue||0) + '</span></div>';
 
       if (data.periods && data.periods.length > 0) {
         document.getElementById('periodBody').innerHTML = data.periods.map((p, i) =>
