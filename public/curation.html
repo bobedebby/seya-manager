@@ -8,295 +8,374 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, sans-serif; background: #0d0d0d; color: #e8e8e8; min-height: 100vh; }
 
-    .topbar { padding: 14px 16px; border-bottom: 1px solid #222; }
-    .topbar a { color: #888; font-size: 13px; text-decoration: none; }
-    .topbar a:hover { color: #ccc; }
+    .page { max-width: 480px; margin: 0 auto; padding: 16px; }
 
-    .container { max-width: 640px; margin: 0 auto; padding: 16px; }
+    /* Header */
+    .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding-bottom: 14px; border-bottom: 1px solid #222; }
+    .header-left { display: flex; flex-direction: column; gap: 4px; }
+    .back-link { font-size: 12px; color: #666; text-decoration: none; }
+    .back-link:hover { color: #aaa; }
+    .header-title { font-size: 18px; font-weight: 700; color: #fff; }
+    .saved-count { font-size: 12px; color: #888; background: #1e1e1e; border: 1px solid #2a2a2a; border-radius: 20px; padding: 4px 10px; white-space: nowrap; }
 
-    h1 { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 4px; }
-    .subtitle { font-size: 12px; color: #555; margin-bottom: 20px; letter-spacing: 0.05em; }
-
-    .form-card { background: #161616; border: 1px solid #222; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
-    .form-group { margin-bottom: 14px; }
-    .form-group label { display: block; font-size: 12px; color: #888; margin-bottom: 6px; letter-spacing: 0.03em; }
+    /* Form */
+    .form-card { background: #161616; border: 1px solid #222; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    .form-group { margin-bottom: 12px; }
+    .form-group:last-of-type { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 11px; color: #666; margin-bottom: 6px; letter-spacing: 0.04em; text-transform: uppercase; }
     .form-group input, .form-group select {
       width: 100%; background: #0d0d0d; border: 1px solid #2a2a2a; border-radius: 8px;
-      padding: 10px 12px; font-size: 14px; color: #e8e8e8; outline: none;
+      padding: 12px; font-size: 15px; color: #e8e8e8; outline: none;
+      -webkit-appearance: none; appearance: none;
       transition: border-color 0.2s;
     }
     .form-group input::placeholder { color: #444; }
-    .form-group input:focus, .form-group select:focus { border-color: #4a4a4a; }
+    .form-group input:focus, .form-group select:focus { border-color: #555; }
+    .form-group select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23666' d='M6 8L0 0h12z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; }
     .form-group select option { background: #161616; }
 
     .btn-search {
-      width: 100%; padding: 12px; background: #e8e8e8; color: #0d0d0d;
-      border: none; border-radius: 8px; font-size: 14px; font-weight: 700;
-      cursor: pointer; transition: background 0.2s; letter-spacing: 0.02em;
+      width: 100%; padding: 0 16px; min-height: 48px; background: #e8e8e8; color: #0d0d0d;
+      border: none; border-radius: 10px; font-size: 15px; font-weight: 700;
+      cursor: pointer; transition: background 0.2s;
     }
     .btn-search:hover { background: #fff; }
     .btn-search:disabled { background: #2a2a2a; color: #555; cursor: not-allowed; }
 
-    .status { font-size: 13px; color: #666; text-align: center; padding: 12px 0; }
-    .status.loading { color: #888; }
-    .status.error { color: #e05; }
+    .status-msg { font-size: 13px; text-align: center; padding: 10px 0; }
+    .status-msg.loading { color: #888; }
+    .status-msg.error { color: #e05; }
+    .status-msg.success { color: #4c9; }
+
+    /* Filter bar */
+    .filter-bar { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 16px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .filter-bar::-webkit-scrollbar { display: none; }
+    .filter-btn {
+      flex-shrink: 0; padding: 6px 14px; border-radius: 20px; font-size: 12px;
+      border: 1px solid #2a2a2a; color: #888; background: #161616; cursor: pointer;
+      transition: all 0.15s; white-space: nowrap;
+    }
+    .filter-btn.active { border-color: #c8b97a; color: #c8b97a; background: #1e1b10; }
+
+    /* Section label */
+    .section-label { font-size: 11px; color: #555; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 12px; }
 
     /* Brand card */
-    .brand-card {
-      background: #161616; border: 1px solid #222; border-radius: 12px;
-      padding: 20px; margin-bottom: 16px;
-    }
-    .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
-    .brand-name { font-size: 18px; font-weight: 700; color: #fff; }
-    .brand-meta { font-size: 12px; color: #666; margin-top: 3px; }
-    .total-score {
-      background: #1e1e1e; border: 1px solid #333; border-radius: 8px;
-      padding: 6px 12px; text-align: center; flex-shrink: 0;
-    }
-    .total-score .score-num { font-size: 22px; font-weight: 700; color: #c8b97a; line-height: 1; }
-    .total-score .score-label { font-size: 10px; color: #666; }
+    .brand-card { background: #161616; border: 1px solid #222; border-radius: 12px; padding: 18px; margin-bottom: 14px; }
 
-    .scores-row { display: flex; gap: 10px; margin-bottom: 16px; }
-    .score-item { flex: 1; }
-    .score-item-label { font-size: 11px; color: #666; margin-bottom: 4px; }
-    .score-item-val { font-size: 13px; font-weight: 600; color: #e8e8e8; margin-bottom: 4px; }
-    .progress-bg { background: #222; border-radius: 4px; height: 4px; overflow: hidden; }
-    .progress-fill { height: 100%; border-radius: 4px; background: #c8b97a; transition: width 0.4s; }
-
-    .links-row { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
-    .link-btn {
-      font-size: 12px; padding: 5px 10px; border-radius: 6px;
-      border: 1px solid #2a2a2a; color: #aaa; text-decoration: none;
-      background: #1a1a1a; transition: border-color 0.2s, color 0.2s;
+    .card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
+    .brand-name { font-size: 17px; font-weight: 700; color: #fff; margin-bottom: 3px; }
+    .brand-meta { font-size: 12px; color: #666; }
+    .score-badge {
+      flex-shrink: 0; min-width: 44px; height: 44px; border-radius: 10px; border: 1px solid #2a2a2a;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: #111; margin-left: 10px;
     }
+    .score-badge .num { font-size: 19px; font-weight: 700; line-height: 1; }
+    .score-badge .lbl { font-size: 9px; color: #666; margin-top: 2px; }
+    .score-high { color: #4c9; }
+    .score-mid  { color: #f90; }
+    .score-low  { color: #e05; }
+
+    .scores-list { margin-bottom: 14px; display: flex; flex-direction: column; gap: 8px; }
+    .score-row { display: flex; align-items: center; gap: 10px; }
+    .score-row-label { font-size: 12px; color: #888; width: 72px; flex-shrink: 0; }
+    .score-row-val { font-size: 12px; font-weight: 600; color: #e8e8e8; width: 28px; flex-shrink: 0; }
+    .bar-bg { flex: 1; background: #222; border-radius: 3px; height: 4px; overflow: hidden; }
+    .bar-fg { height: 100%; border-radius: 3px; background: #c8b97a; }
+
+    .links-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+    .link-btn { font-size: 12px; padding: 5px 10px; border-radius: 6px; border: 1px solid #2a2a2a; color: #aaa; text-decoration: none; background: #111; }
     .link-btn:hover { border-color: #555; color: #e8e8e8; }
 
-    .seya-voice {
-      border-left: 2px solid #c8b97a; padding-left: 14px; margin-bottom: 16px;
-      font-size: 13px; color: #aaa; line-height: 1.7; font-style: italic;
-    }
-    .seya-voice-label { font-size: 11px; color: #c8b97a; font-style: normal; margin-bottom: 6px; letter-spacing: 0.05em; }
+    .seya-voice { border-left: 2px solid #c8b97a; padding-left: 12px; margin-bottom: 14px; }
+    .seya-voice-label { font-size: 10px; color: #c8b97a; letter-spacing: 0.05em; margin-bottom: 5px; }
+    .seya-voice-text { font-size: 13px; color: #aaa; line-height: 1.7; font-style: italic; }
 
-    .analysis-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
-    .analysis-cell { background: #111; border-radius: 8px; padding: 12px; }
-    .analysis-cell-label { font-size: 10px; color: #555; margin-bottom: 5px; letter-spacing: 0.04em; text-transform: uppercase; }
-    .analysis-cell-text { font-size: 12px; color: #bbb; line-height: 1.6; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+    .info-cell { background: #111; border-radius: 8px; padding: 10px; }
+    .info-cell-label { font-size: 10px; color: #555; letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 4px; }
+    .info-cell-text { font-size: 12px; color: #bbb; line-height: 1.5; }
 
     .tags-row { display: flex; gap: 6px; flex-wrap: wrap; }
-    .tag {
-      font-size: 11px; padding: 3px 8px; border-radius: 20px;
-      background: #1a1a1a; border: 1px solid #2a2a2a; color: #888;
-    }
-    .tag.contact-yes { border-color: #3a5a3a; color: #6cb86c; background: #0f1f0f; }
-    .tag.contact-no  { border-color: #3a2a2a; color: #c06060; background: #1a0f0f; }
+    .tag { font-size: 11px; padding: 3px 9px; border-radius: 20px; background: #1a1a1a; border: 1px solid #2a2a2a; color: #888; }
+    .tag.contact-yes { border-color: #2a4a2a; color: #4c9; background: #0a150a; }
+    .tag.contact-watch { border-color: #3a3a1a; color: #c8b97a; background: #12110a; }
+    .tag.contact-no { border-color: #3a1a1a; color: #e05; background: #150a0a; }
+
+    .empty-state { text-align: center; padding: 40px 20px; color: #444; font-size: 14px; }
   </style>
 </head>
 <body>
-  <div class="topbar">
-    <a href="/">← 營業報表</a>
-  </div>
+<div class="page">
 
-  <div class="container">
-    <h1>山秧選物研究員</h1>
-    <p class="subtitle">SEYA CURATION RESEARCH</p>
-
-    <div class="form-card">
-      <div class="form-group">
-        <label>搜尋關鍵字</label>
-        <input type="text" id="keyword" placeholder="例如：手工蠟燭、皮革筆記本、陶器…">
-      </div>
-      <div class="form-group">
-        <label>類別</label>
-        <select id="category">
-          <option value="">不限類別</option>
-          <option value="香氛">香氛</option>
-          <option value="咖啡用品">咖啡用品</option>
-          <option value="閱讀書寫">閱讀書寫</option>
-          <option value="居家生活">居家生活</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>地區優先</label>
-        <select id="region">
-          <option value="">不限</option>
-          <option value="台灣">台灣</option>
-          <option value="日本">日本</option>
-          <option value="韓國">韓國</option>
-          <option value="北歐">北歐</option>
-          <option value="歐洲其他">歐洲其他</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>回傳品牌數</label>
-        <select id="count">
-          <option value="3">3個（精選）</option>
-          <option value="5" selected>5個（標準）</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>合作模式偏好</label>
-        <select id="mode">
-          <option value="">不限</option>
-          <option value="批發">批發</option>
-          <option value="寄賣">寄賣</option>
-          <option value="經銷">經銷</option>
-        </select>
-      </div>
-      <button class="btn-search" id="searchBtn" onclick="startResearch()">啟動採購研究</button>
+  <div class="header">
+    <div class="header-left">
+      <a class="back-link" href="/">← 營業報表</a>
+      <div class="header-title">山秧選物研究員</div>
     </div>
-
-    <div id="statusArea"></div>
-    <div id="resultsArea"></div>
+    <div class="saved-count" id="savedCount">— 個品牌</div>
   </div>
 
-  <script>
-    const brandMap = {};
+  <div class="form-card">
+    <div class="form-group">
+      <label>搜尋關鍵字</label>
+      <input type="text" id="keyword" placeholder="例如：手工蠟燭、皮革筆記本…">
+    </div>
+    <div class="form-group">
+      <label>類別</label>
+      <select id="category">
+        <option value="">不限類別</option>
+        <option value="香氛">香氛</option>
+        <option value="咖啡用品">咖啡用品</option>
+        <option value="閱讀書寫">閱讀書寫</option>
+        <option value="居家生活">居家生活</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>地區優先</label>
+      <select id="region">
+        <option value="">不限</option>
+        <option value="台灣">台灣</option>
+        <option value="日本">日本</option>
+        <option value="韓國">韓國</option>
+        <option value="北歐">北歐</option>
+        <option value="歐洲其他">歐洲其他</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>回傳品牌數</label>
+      <select id="count">
+        <option value="3">3個（精選）</option>
+        <option value="5" selected>5個（標準）</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>合作模式偏好</label>
+      <select id="mode">
+        <option value="">不限</option>
+        <option value="批發">批發</option>
+        <option value="寄賣">寄賣</option>
+        <option value="經銷">經銷</option>
+      </select>
+    </div>
+    <button class="btn-search" id="searchBtn" onclick="startResearch()">啟動採購研究</button>
+    <div id="statusArea"></div>
+  </div>
 
-    function buildMessage() {
-      const keyword  = document.getElementById('keyword').value.trim();
-      const category = document.getElementById('category').value;
-      const region   = document.getElementById('region').value;
-      const count    = document.getElementById('count').value;
-      const mode     = document.getElementById('mode').value;
+  <div class="filter-bar" id="filterBar">
+    <button class="filter-btn active" data-cat="" onclick="setFilter(this, '')">全部</button>
+    <button class="filter-btn" data-cat="香氛" onclick="setFilter(this, '香氛')">香氛</button>
+    <button class="filter-btn" data-cat="咖啡用品" onclick="setFilter(this, '咖啡用品')">咖啡用品</button>
+    <button class="filter-btn" data-cat="閱讀書寫" onclick="setFilter(this, '閱讀書寫')">閱讀書寫</button>
+    <button class="filter-btn" data-cat="居家生活" onclick="setFilter(this, '居家生活')">居家生活</button>
+  </div>
 
-      let msg = `請研究並推薦 ${count} 個適合山秧選物販售的品牌。`;
-      if (keyword)  msg += `\n關鍵字／主題：${keyword}`;
-      if (category) msg += `\n類別：${category}`;
-      if (region)   msg += `\n地區優先：${region}`;
-      if (mode)     msg += `\n合作模式偏好：${mode}`;
-      msg += `\n請依照評分標準評分，並以 JSON 格式回傳。`;
-      return msg;
+  <div class="section-label" id="dbLabel"></div>
+  <div id="brandsArea"></div>
+
+</div>
+<script>
+  // brandDB: name → brand object
+  const brandDB = {};
+  let activeFilter = '';
+
+  function setFilter(btn, cat) {
+    activeFilter = cat;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderAll();
+  }
+
+  function updateSavedCount() {
+    const n = Object.keys(brandDB).length;
+    document.getElementById('savedCount').textContent = n + ' 個品牌';
+  }
+
+  function sortedBrands() {
+    return Object.values(brandDB).sort((a, b) => (b.score_total || 0) - (a.score_total || 0));
+  }
+
+  function renderAll() {
+    const list = sortedBrands().filter(b => !activeFilter || b.category === activeFilter);
+    const area = document.getElementById('brandsArea');
+    if (!list.length) {
+      area.innerHTML = '<div class="empty-state">尚無品牌資料</div>';
+      document.getElementById('dbLabel').textContent = '';
+      return;
     }
+    document.getElementById('dbLabel').textContent = '品牌資料庫 · ' + list.length + ' 個';
+    area.innerHTML = list.map(brandCardHTML).join('');
+  }
 
-    function setStatus(text, type) {
-      const el = document.getElementById('statusArea');
-      el.innerHTML = text ? `<div class="status ${type}">${text}</div>` : '';
-    }
+  function scoreColor(n) {
+    if (n >= 8) return 'score-high';
+    if (n >= 6) return 'score-mid';
+    return 'score-low';
+  }
 
-    async function startResearch() {
-      const btn = document.getElementById('searchBtn');
-      btn.disabled = true;
-      btn.textContent = '研究中…';
-      setStatus('⏳ 山秧研究員正在聯絡各品牌資料庫…', 'loading');
+  function barPct(n) { return Math.round((n / 10) * 100) + '%'; }
 
-      try {
-        const res = await fetch('/api/curation', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userMessage: buildMessage() })
-        });
-        const result = await res.json();
-        if (!result.success) throw new Error(result.error);
+  function brandCardHTML(b) {
+    const total = b.score_total ?? '—';
+    const fit   = b.score_fit ?? 0;
+    const comm  = b.score_commercial ?? 0;
+    const heat  = b.score_heat ?? 0;
+    const colorClass = typeof total === 'number' ? scoreColor(total) : '';
 
-        // 合併所有 text block
-        const rawText = (result.content || [])
-          .filter(b => b.type === 'text')
-          .map(b => b.text)
-          .join('');
-        if (!rawText) throw new Error('回傳內容不含文字結果');
+    const igHtml = b.ig && b.ig !== 'N/A'
+      ? `<a class="link-btn" href="https://instagram.com/${b.ig.replace('@','')}" target="_blank">📷 ${b.ig}</a>` : '';
+    const webHtml = b.website && b.website !== 'N/A'
+      ? `<a class="link-btn" href="${b.website}" target="_blank">🌐 官網</a>` : '';
 
-        const match = rawText.match(/\{[\s\S]*\}/);
-        const jsonStr = match ? match[0] : null;
-        if (!jsonStr) throw new Error('無法從回傳內容中找到 JSON');
-        const parsed = JSON.parse(jsonStr);
-        const brands = parsed.brands || [];
-        if (!brands.length) throw new Error('沒有找到品牌資料');
+    const contactVal = (b.contact || '').toLowerCase();
+    const contactClass = contactVal.startsWith('是') ? 'contact-yes'
+                       : contactVal.startsWith('觀望') ? 'contact-watch'
+                       : 'contact-no';
+    const contactLabel = contactVal.startsWith('是') ? '✓ 建議聯絡'
+                       : contactVal.startsWith('觀望') ? '◎ 觀望'
+                       : '✗ 暫緩';
 
-        brands.forEach(renderBrand);
-        setStatus(`✓ 找到 ${brands.length} 個品牌`, '');
-      } catch (e) {
-        setStatus('❌ ' + e.message, 'error');
-      } finally {
-        btn.disabled = false;
-        btn.textContent = '啟動採購研究';
+    return `<div class="brand-card">
+      <div class="card-top">
+        <div>
+          <div class="brand-name">${b.name}</div>
+          <div class="brand-meta">${b.country || ''}${b.category ? ' · ' + b.category : ''}</div>
+        </div>
+        <div class="score-badge">
+          <span class="num ${colorClass}">${total}</span>
+          <span class="lbl">總分</span>
+        </div>
+      </div>
+      <div class="scores-list">
+        <div class="score-row"><span class="score-row-label">契合度</span><span class="score-row-val">${fit}</span><div class="bar-bg"><div class="bar-fg" style="width:${barPct(fit)}"></div></div></div>
+        <div class="score-row"><span class="score-row-label">商業可行性</span><span class="score-row-val">${comm}</span><div class="bar-bg"><div class="bar-fg" style="width:${barPct(comm)}"></div></div></div>
+        <div class="score-row"><span class="score-row-label">市場熱度</span><span class="score-row-val">${heat}</span><div class="bar-bg"><div class="bar-fg" style="width:${barPct(heat)}"></div></div></div>
+      </div>
+      ${igHtml || webHtml ? `<div class="links-row">${igHtml}${webHtml}</div>` : ''}
+      <div class="seya-voice">
+        <div class="seya-voice-label">山秧怎麼介紹這個品牌</div>
+        <div class="seya-voice-text">${b.seya_voice || '—'}</div>
+      </div>
+      <div class="info-grid">
+        <div class="info-cell"><div class="info-cell-label">為什麼適合山秧</div><div class="info-cell-text">${b.why_seya || '—'}</div></div>
+        <div class="info-cell"><div class="info-cell-label">目標客群</div><div class="info-cell-text">${b.target_customer || '—'}</div></div>
+        <div class="info-cell"><div class="info-cell-label">展示建議</div><div class="info-cell-text">${b.display || '—'}</div></div>
+        <div class="info-cell"><div class="info-cell-label">採購模式</div><div class="info-cell-text">${b.procurement || '—'}</div></div>
+      </div>
+      <div class="tags-row">
+        <span class="tag ${contactClass}">${contactLabel}</span>
+        ${b.category ? `<span class="tag">${b.category}</span>` : ''}
+        ${b.country  ? `<span class="tag">${b.country}</span>`  : ''}
+      </div>
+    </div>`;
+  }
+
+  function setStatus(text, type) {
+    const el = document.getElementById('statusArea');
+    el.innerHTML = text ? `<div class="status-msg ${type}" style="margin-top:10px">${text}</div>` : '';
+  }
+
+  function buildMessage() {
+    const keyword  = document.getElementById('keyword').value.trim();
+    const category = document.getElementById('category').value;
+    const region   = document.getElementById('region').value;
+    const count    = document.getElementById('count').value;
+    const mode     = document.getElementById('mode').value;
+    let msg = `請研究並推薦 ${count} 個適合山秧選物販售的品牌。`;
+    if (keyword)  msg += `\n關鍵字／主題：${keyword}`;
+    if (category) msg += `\n類別：${category}`;
+    if (region)   msg += `\n地區優先：${region}`;
+    if (mode)     msg += `\n合作模式偏好：${mode}`;
+    msg += `\n請依照評分標準評分，並以 JSON 格式回傳。`;
+    return msg;
+  }
+
+  async function saveBrand(brand) {
+    try {
+      await fetch('/api/curation/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(brand),
+      });
+    } catch (_) {}
+  }
+
+  async function startResearch() {
+    const btn = document.getElementById('searchBtn');
+    btn.disabled = true;
+    btn.textContent = '研究中…';
+    setStatus('⏳ 山秧研究員正在聯絡各品牌資料庫…', 'loading');
+
+    try {
+      const res = await fetch('/api/curation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userMessage: buildMessage() }),
+      });
+      const result = await res.json();
+      if (!result.success) throw new Error(result.error);
+
+      const rawText = (result.content || [])
+        .filter(b => b.type === 'text')
+        .map(b => b.text)
+        .join('');
+      if (!rawText) throw new Error('回傳內容不含文字結果');
+
+      const match = rawText.match(/\{[\s\S]*\}/);
+      if (!match) throw new Error('無法從回傳內容中找到 JSON');
+      const parsed = JSON.parse(match[0]);
+      const brands = parsed.brands || [];
+      if (!brands.length) throw new Error('沒有找到品牌資料');
+
+      for (const b of brands) {
+        // normalize keys from API response
+        const entry = {
+          name: b.name,
+          country: b.country,
+          category: b.category,
+          ig: b.ig,
+          website: b.website,
+          score_fit: b.scores?.fit ?? b.score_fit ?? 0,
+          score_commercial: b.scores?.commercial ?? b.score_commercial ?? 0,
+          score_heat: b.scores?.heat ?? b.score_heat ?? 0,
+          score_total: b.scores?.total ?? b.score_total ?? 0,
+          why_seya: b.why_seya,
+          target_customer: b.target_customer,
+          display: b.display,
+          procurement: b.procurement,
+          contact: b.contact,
+          seya_voice: b.seya_voice,
+        };
+        brandDB[entry.name] = entry;
+        saveBrand(entry);
       }
+
+      renderAll();
+      updateSavedCount();
+      setStatus(`✓ 找到 ${brands.length} 個品牌，已儲存`, 'success');
+    } catch (e) {
+      setStatus('❌ ' + e.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '啟動採購研究';
     }
+  }
 
-    function renderBrand(brand) {
-      const id = 'brand-' + brand.name.replace(/\s+/g, '-');
-      const scores = brand.scores || {};
-      const total = scores.total ?? '—';
-      const fit  = scores.fit  ?? 0;
-      const comm = scores.commercial ?? 0;
-      const heat = scores.heat ?? 0;
-
-      const igHtml = brand.ig && brand.ig !== 'N/A'
-        ? `<a class="link-btn" href="https://instagram.com/${brand.ig.replace('@','')}" target="_blank">📷 ${brand.ig}</a>` : '';
-      const webHtml = brand.website && brand.website !== 'N/A'
-        ? `<a class="link-btn" href="${brand.website}" target="_blank">🌐 官網</a>` : '';
-
-      const contactYes = brand.contact && brand.contact.startsWith('是');
-      const contactTag = `<span class="tag ${contactYes ? 'contact-yes' : 'contact-no'}">${contactYes ? '✓ 建議聯絡' : '✗ 暫緩聯絡'}</span>`;
-
-      const html = `
-        <div class="brand-card" id="${id}">
-          <div class="card-header">
-            <div>
-              <div class="brand-name">${brand.name}</div>
-              <div class="brand-meta">${brand.country || ''}${brand.category ? ' · ' + brand.category : ''}</div>
-            </div>
-            <div class="total-score">
-              <div class="score-num">${total}</div>
-              <div class="score-label">總分</div>
-            </div>
-          </div>
-
-          <div class="scores-row">
-            ${scoreItem('契合度', fit)}
-            ${scoreItem('商業可行性', comm)}
-            ${scoreItem('市場熱度', heat)}
-          </div>
-
-          ${igHtml || webHtml ? `<div class="links-row">${igHtml}${webHtml}</div>` : ''}
-
-          <div class="seya-voice">
-            <div class="seya-voice-label">山秧怎麼介紹這個品牌</div>
-            ${brand.seya_voice || ''}
-          </div>
-
-          <div class="analysis-grid">
-            <div class="analysis-cell">
-              <div class="analysis-cell-label">為什麼適合山秧</div>
-              <div class="analysis-cell-text">${brand.why_seya || '—'}</div>
-            </div>
-            <div class="analysis-cell">
-              <div class="analysis-cell-label">目標客群</div>
-              <div class="analysis-cell-text">${brand.target_customer || '—'}</div>
-            </div>
-            <div class="analysis-cell">
-              <div class="analysis-cell-label">展示建議</div>
-              <div class="analysis-cell-text">${brand.display || '—'}</div>
-            </div>
-            <div class="analysis-cell">
-              <div class="analysis-cell-label">採購模式</div>
-              <div class="analysis-cell-text">${brand.procurement || '—'}</div>
-            </div>
-          </div>
-
-          <div class="tags-row">
-            ${contactTag}
-            ${brand.category ? `<span class="tag">${brand.category}</span>` : ''}
-            ${brand.country  ? `<span class="tag">${brand.country}</span>`  : ''}
-          </div>
-        </div>`;
-
-      const existing = document.getElementById(id);
-      if (existing) {
-        existing.outerHTML = html;
-      } else {
-        document.getElementById('resultsArea').insertAdjacentHTML('beforeend', html);
+  // Load saved brands on page load
+  async function loadSaved() {
+    try {
+      const res = await fetch('/api/curation/brands');
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        data.forEach(b => { brandDB[b.name] = b; });
+        renderAll();
+        updateSavedCount();
       }
-      brandMap[brand.name] = true;
-    }
+    } catch (_) {}
+  }
 
-    function scoreItem(label, val) {
-      const pct = Math.round((val / 10) * 100);
-      return `<div class="score-item">
-        <div class="score-item-label">${label}</div>
-        <div class="score-item-val">${val}<span style="font-size:10px;color:#555"> /10</span></div>
-        <div class="progress-bg"><div class="progress-fill" style="width:${pct}%"></div></div>
-      </div>`;
-    }
-  </script>
+  loadSaved();
+</script>
 </body>
 </html>
