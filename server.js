@@ -5,8 +5,9 @@ const multer = require('multer');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
 
+const sharp = require('sharp');
 const app = express();
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
 app.use(cors());
 app.use(express.json());
@@ -169,7 +170,16 @@ app.post('/api/analyze-multi', upload.array('images', 3), async (req, res) => {
       const file = files[i];
       const imageType = typeArray[i];
       try {
-        const parsed = await analyzeImageWithClaude(file.buffer, file.mimetype, imageType);
+        // 後端壓縮：超過 1MB 就用 sharp 縮到 1200px、品質 70%
+        let buffer = file.buffer;
+        if (buffer.length > 1024 * 1024) {
+          buffer = await sharp(buffer)
+            .resize({ width: 1200, height: 1200, fit: 'inside', withoutEnlargement: true })
+            .jpeg({ quality: 70 })
+            .toBuffer();
+          console.log(`[analyze-multi] ${imageType} 壓縮後 ${buffer.length}bytes`);
+        }
+        const parsed = await analyzeImageWithClaude(buffer, 'image/jpeg', imageType);
         results[imageType] = parsed;
       } catch (e) {
         console.error(`[analyze-multi] ${imageType} 解析失敗:`, e.message);
