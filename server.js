@@ -113,7 +113,7 @@ async function analyzeImageWithClaude(buffer, mimeType, imageType) {
 {
   "sale_date": "YYYY-MM-DD",
   "gross_revenue": 營業金額數字,
-  "coupon_amount": 折價券金額數字（沒有則為0）,
+  "discount_voucher": 折價券金額數字（沒有則為0）,
   "discount_amount": 折讓金額數字（沒有則為0）,
   "total_revenue": 營業金額減去折價券金額再減去折讓金額的結果,
   "cash_amount": 付現金額數字,
@@ -193,16 +193,17 @@ app.post('/api/analyze-multi', upload.array('images', 3), async (req, res) => {
     const sales   = results.sales_ranking;
 
     const merged = {
-      sale_date:       summary?.sale_date || payment?.sale_date || sales?.sale_date,
-      items:           sales?.items || [],
-      gross_revenue:   summary?.gross_revenue || 0,
-      discount_amount: summary?.discount_amount || 0,
-      total_revenue:   summary?.total_revenue || payment?.total_revenue || 0,
-      cash_amount:     summary?.cash_amount  || payment?.cash_amount  || 0,
-      card_amount:     summary?.card_amount  || payment?.card_amount  || 0,
-      other_amount:    payment?.other_amount || 0,
-      periods:         summary?.periods || [],
-      parse_errors:    Object.keys(errors).length > 0 ? errors : null
+      sale_date:        summary?.sale_date || payment?.sale_date || sales?.sale_date,
+      items:            sales?.items || [],
+      gross_revenue:    summary?.gross_revenue || 0,
+      discount_voucher: summary?.discount_voucher || 0,
+      discount_amount:  summary?.discount_amount || 0,
+      total_revenue:    summary?.total_revenue || payment?.total_revenue || 0,
+      cash_amount:      summary?.cash_amount  || payment?.cash_amount  || 0,
+      card_amount:      summary?.card_amount  || payment?.card_amount  || 0,
+      other_amount:     payment?.other_amount || 0,
+      periods:          summary?.periods || [],
+      parse_errors:     Object.keys(errors).length > 0 ? errors : null
     };
 
     res.json({ success: true, data: merged });
@@ -218,7 +219,7 @@ app.post('/api/save-daily', async (req, res) => {
   try {
     const {
       sale_date, items, total_revenue,
-      gross_revenue, discount_amount,
+      gross_revenue, discount_voucher, discount_amount,
       cash_amount, card_amount, other_amount,
       is_complete
     } = req.body;
@@ -239,7 +240,7 @@ app.post('/api/save-daily', async (req, res) => {
     // 2. 寫入新的 daily_cash
     const { error: cashError } = await supabase
       .from('daily_cash')
-      .insert({ sale_date, total_revenue, cash_amount, card_amount, other_amount, is_complete: is_complete !== false });
+      .insert({ sale_date, total_revenue, cash_amount, card_amount, other_amount, is_complete: is_complete !== false, discount_voucher: discount_voucher || 0, discount_amount: discount_amount || 0 });
 
     if (cashError) throw cashError;
 
@@ -328,9 +329,12 @@ app.get('/api/daily-report/:date', async (req, res) => {
 
     if (cashError && cashError.code !== 'PGRST116') throw cashError;
 
-    const total_cost         = sales.reduce((sum, s) => sum + (s.cost         || 0), 0);
-    const total_gross_profit = sales.reduce((sum, s) => sum + (s.gross_profit || 0), 0);
-    const total_revenue      = cash?.total_revenue || 0;
+    const total_cost              = sales.reduce((sum, s) => sum + (s.cost         || 0), 0);
+    const items_gross_profit      = sales.reduce((sum, s) => sum + (s.gross_profit || 0), 0);
+    const total_revenue           = cash?.total_revenue    || 0;
+    const discount_voucher        = cash?.discount_voucher || 0;
+    const discount_amount         = cash?.discount_amount  || 0;
+    const total_gross_profit      = items_gross_profit - discount_voucher - discount_amount;
     const margin_pct = total_revenue > 0
       ? Math.round(total_gross_profit / total_revenue * 1000) / 10
       : 0;
@@ -342,6 +346,8 @@ app.get('/api/daily-report/:date', async (req, res) => {
         total_revenue,
         total_cost,
         total_gross_profit,
+        discount_voucher,
+        discount_amount,
         margin_pct,
         cash_amount:  cash?.cash_amount  || 0,
         card_amount:  cash?.card_amount  || 0,
