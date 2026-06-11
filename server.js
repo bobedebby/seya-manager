@@ -809,6 +809,65 @@ app.post('/api/recalculate-costs', async (req, res) => {
   }
 });
 
+// ─── 選物採購研究 ─────────────────────────────────────────────────────
+const CURATION_SYSTEM_PROMPT = `你是山秧咖啡 / 山秧墨黛 Seyatoday 的專業選物採購研究員。
+
+品牌核心精神：Say Today（向今天告別）、慢生活、咖啡、閱讀、書寫、氣味、自然、留白、安靜、時間感、日常儀式。
+品牌哲學：山秧不製造感受，它提供讓感受自然發生的停頓。它是出發之前的地方，不留人，送人出去。視覺語言來自城市邊緣的清晨——霧、山、朝露、柔和但清醒的光線。色彩是白、鵝黃、墨綠。
+品牌風格：極簡、非網紅、非潮流、非可愛系、非動漫IP、非快時尚、重視質感與耐用性。
+目標客群：25-45歲都市生活族群。
+
+採購原則（商品必須符合至少三項）：
+- 能延長一杯咖啡的時間
+- 能創造生活儀式感
+- 不依賴流行趨勢
+- 可長期販售三年以上
+- 設計風格簡潔克制
+
+評分標準：
+- 品牌契合度（0-10）：與山秧世界觀的符合程度
+- 商業可行性（0-10）：批發/經銷/寄賣/B2B合作可能性
+- 市場熱度（0-10）：IG互動率、社群活躍度、搜尋趨勢、品牌成長跡象
+- 總分 = 契合度×50% + 商業可行性×30% + 熱度×20%
+
+seya_voice 欄位說明：
+不是採購語言。用山秧說話的方式——安靜、不推銷、像對一個信任你的人說一件他還不知道的事。
+不要說「這個品牌很適合山秧」。
+要說「把這個放在咖啡旁邊，時間會慢下來」這種生活場景的語言。
+2-3句，不超過。
+
+必須以純JSON格式回傳，不要有任何前言或說明文字：
+{"brands":[{"name":"品牌名稱","country":"國家","category":"類別（香氛/咖啡用品/閱讀書寫/居家生活）","ig":"IG帳號或N/A","website":"官網網址或N/A","scores":{"fit":數字,"commercial":數字,"heat":數字,"total":數字},"why_seya":"為什麼適合山秧（採購視角，2-3句）","target_customer":"可能吸引哪種客人（1-2句）","display":"店內展示或網站販售（一句）","procurement":"建議進貨還是寄賣及原因（一句）","contact":"是/否及原因（一句）","seya_voice":"用山秧的語言介紹這個品牌（2-3句）"}]}`;
+
+app.post('/api/curation', async (req, res) => {
+  try {
+    const { userMessage } = req.body;
+    if (!userMessage) return res.status(400).json({ success: false, error: '請提供 userMessage' });
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-opus-4-5',
+        max_tokens: 4000,
+        system: CURATION_SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: userMessage }],
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+      }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(JSON.stringify(data));
+    res.json({ success: true, content: data.content });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 const PORT = process.env.NODE_ENV !== 'production' ? (process.env.PORT || 3000) : (process.env.PORT || 3000);
 if (process.env.NODE_ENV !== 'production') {
   app.listen(PORT, () => {
