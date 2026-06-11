@@ -204,7 +204,8 @@ app.post('/api/save-daily', async (req, res) => {
     const {
       sale_date, items, total_revenue,
       gross_revenue, discount_amount,
-      cash_amount, card_amount, other_amount
+      cash_amount, card_amount, other_amount,
+      is_complete
     } = req.body;
 
     // 1. 無條件清除該日期舊數據（確保重複上傳會完整覆蓋，不疊加）
@@ -223,7 +224,7 @@ app.post('/api/save-daily', async (req, res) => {
     // 2. 寫入新的 daily_cash
     const { error: cashError } = await supabase
       .from('daily_cash')
-      .insert({ sale_date, total_revenue, cash_amount, card_amount, other_amount });
+      .insert({ sale_date, total_revenue, cash_amount, card_amount, other_amount, is_complete: is_complete !== false });
 
     if (cashError) throw cashError;
 
@@ -386,15 +387,18 @@ app.get('/api/export-csv', async (req, res) => {
 app.get('/api/data-coverage', async (req, res) => {
   try {
     const { data, error } = await supabase
-      .from('daily_sales')
-      .select('sale_date')
+      .from('daily_cash')
+      .select('sale_date, is_complete')
       .order('sale_date', { ascending: true });
 
     if (error) throw error;
 
-    // 去重，只保留唯一日期
-    const dates = [...new Set(data.map(r => r.sale_date))];
-    res.json({ success: true, dates });
+    // 回傳每個日期及其完整度
+    const dateMap = {};
+    (data || []).forEach(r => {
+      dateMap[r.sale_date] = r.is_complete === false ? 'incomplete' : 'complete';
+    });
+    res.json({ success: true, dateMap });
 
   } catch (error) {
     console.error(error);

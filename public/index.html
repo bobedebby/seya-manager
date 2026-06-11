@@ -42,7 +42,9 @@
     .coverage-stat span { color: #34c759; }
     .coverage-list { display: flex; flex-wrap: wrap; gap: 6px; }
     .coverage-tag { font-size: 12px; padding: 4px 8px; border-radius: 6px; font-weight: 500; }
-    .coverage-tag.missing { background: #f8d7da; color: #721c24; }
+    .coverage-tag.missing    { background: #f8d7da; color: #721c24; }
+    .coverage-tag.incomplete { background: #fff3cd; color: #856404; }
+    .coverage-tag.complete   { background: #d4edda; color: #155724; }
     .editable { cursor: text; border-bottom: 1px dashed #bbb; display: inline-block; min-width: 16px; }
     .editable:hover { border-bottom-color: #34c759; }
     .date-row { display: flex; gap: 12px; margin-bottom: 12px; align-items: center; }
@@ -208,6 +210,7 @@
         const result = await res.json();
         if (!result.success) throw new Error(result.error);
         parsedData = result.data;
+        parsedData.is_complete = Object.keys(uploadedFiles).length >= 3;
         displayResult(parsedData);
         showStatus('success', '✅ 解析完成，請確認後儲存');
       } catch (err) {
@@ -360,8 +363,9 @@
         const result = await res.json();
         if (!result.success) throw new Error(result.error);
 
-        const coveredSet = new Set(result.dates);
-        if (coveredSet.size === 0) {
+        const dateMap = result.dateMap || {};
+        const coveredDates = Object.keys(dateMap);
+        if (coveredDates.length === 0) {
           document.getElementById('coverageStat').textContent = '尚無任何數據';
           return;
         }
@@ -369,22 +373,29 @@
         // 計算從最早日期到今天的所有日期
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        const earliest = new Date(result.dates[0]);
+        const earliest = new Date(coveredDates.sort()[0]);
         const allDates = [];
         for (let d = new Date(earliest); d <= today; d.setDate(d.getDate() + 1)) {
           allDates.push(d.toISOString().slice(0, 10));
         }
 
-        const total = allDates.length;
-        const covered = allDates.filter(d => coveredSet.has(d)).length;
+        const total      = allDates.length;
+        const complete   = allDates.filter(d => dateMap[d] === 'complete').length;
+        const incomplete = allDates.filter(d => dateMap[d] === 'incomplete').length;
+        const missing    = allDates.filter(d => !dateMap[d]).length;
 
         document.getElementById('coverageStat').innerHTML =
-          '已覆蓋 <span>' + covered + ' 天</span>／共 ' + total + ' 天';
+          '共 ' + total + ' 天｜' +
+          '<span style="color:#155724">✅ 完整 ' + complete + '</span>　' +
+          (incomplete > 0 ? '<span style="color:#856404">⚠️ 不完整 ' + incomplete + '</span>　' : '') +
+          (missing    > 0 ? '<span style="color:#721c24">❌ 缺少 '   + missing    + '</span>'    : '');
 
-        const missingDates = allDates.reverse().filter(d => !coveredSet.has(d));
-        document.getElementById('coverageList').innerHTML = missingDates.length === 0
-          ? '<span style="color:#34c759;font-size:13px">✅ 所有日期均有數據</span>'
-          : missingDates.map(d => '<span class="coverage-tag missing">' + d + '</span>').join('');
+        document.getElementById('coverageList').innerHTML = allDates.slice().reverse().map(d => {
+          const status = dateMap[d];
+          if (status === 'complete')   return '<span class="coverage-tag complete">'   + d + '</span>';
+          if (status === 'incomplete') return '<span class="coverage-tag incomplete">' + d + ' ⚠️</span>';
+          return '<span class="coverage-tag missing">' + d + '</span>';
+        }).join('');
 
       } catch (e) {
         document.getElementById('coverageStat').textContent = '載入失敗：' + e.message;
