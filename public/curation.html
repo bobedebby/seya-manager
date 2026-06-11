@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>山秧選物研究員</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, sans-serif; background: #0d0d0d; color: #e8e8e8; min-height: 100vh; }
+
+    .topbar { padding: 14px 16px; border-bottom: 1px solid #222; }
+    .topbar a { color: #888; font-size: 13px; text-decoration: none; }
+    .topbar a:hover { color: #ccc; }
+
+    .container { max-width: 640px; margin: 0 auto; padding: 16px; }
+
+    h1 { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+    .subtitle { font-size: 12px; color: #555; margin-bottom: 20px; letter-spacing: 0.05em; }
+
+    .form-card { background: #161616; border: 1px solid #222; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; font-size: 12px; color: #888; margin-bottom: 6px; letter-spacing: 0.03em; }
+    .form-group input, .form-group select {
+      width: 100%; background: #0d0d0d; border: 1px solid #2a2a2a; border-radius: 8px;
+      padding: 10px 12px; font-size: 14px; color: #e8e8e8; outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-group input::placeholder { color: #444; }
+    .form-group input:focus, .form-group select:focus { border-color: #4a4a4a; }
+    .form-group select option { background: #161616; }
+
+    .btn-search {
+      width: 100%; padding: 12px; background: #e8e8e8; color: #0d0d0d;
+      border: none; border-radius: 8px; font-size: 14px; font-weight: 700;
+      cursor: pointer; transition: background 0.2s; letter-spacing: 0.02em;
+    }
+    .btn-search:hover { background: #fff; }
+    .btn-search:disabled { background: #2a2a2a; color: #555; cursor: not-allowed; }
+
+    .status { font-size: 13px; color: #666; text-align: center; padding: 12px 0; }
+    .status.loading { color: #888; }
+    .status.error { color: #e05; }
+
+    /* Brand card */
+    .brand-card {
+      background: #161616; border: 1px solid #222; border-radius: 12px;
+      padding: 20px; margin-bottom: 16px;
+    }
+    .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+    .brand-name { font-size: 18px; font-weight: 700; color: #fff; }
+    .brand-meta { font-size: 12px; color: #666; margin-top: 3px; }
+    .total-score {
+      background: #1e1e1e; border: 1px solid #333; border-radius: 8px;
+      padding: 6px 12px; text-align: center; flex-shrink: 0;
+    }
+    .total-score .score-num { font-size: 22px; font-weight: 700; color: #c8b97a; line-height: 1; }
+    .total-score .score-label { font-size: 10px; color: #666; }
+
+    .scores-row { display: flex; gap: 10px; margin-bottom: 16px; }
+    .score-item { flex: 1; }
+    .score-item-label { font-size: 11px; color: #666; margin-bottom: 4px; }
+    .score-item-val { font-size: 13px; font-weight: 600; color: #e8e8e8; margin-bottom: 4px; }
+    .progress-bg { background: #222; border-radius: 4px; height: 4px; overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 4px; background: #c8b97a; transition: width 0.4s; }
+
+    .links-row { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .link-btn {
+      font-size: 12px; padding: 5px 10px; border-radius: 6px;
+      border: 1px solid #2a2a2a; color: #aaa; text-decoration: none;
+      background: #1a1a1a; transition: border-color 0.2s, color 0.2s;
+    }
+    .link-btn:hover { border-color: #555; color: #e8e8e8; }
+
+    .seya-voice {
+      border-left: 2px solid #c8b97a; padding-left: 14px; margin-bottom: 16px;
+      font-size: 13px; color: #aaa; line-height: 1.7; font-style: italic;
+    }
+    .seya-voice-label { font-size: 11px; color: #c8b97a; font-style: normal; margin-bottom: 6px; letter-spacing: 0.05em; }
+
+    .analysis-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+    .analysis-cell { background: #111; border-radius: 8px; padding: 12px; }
+    .analysis-cell-label { font-size: 10px; color: #555; margin-bottom: 5px; letter-spacing: 0.04em; text-transform: uppercase; }
+    .analysis-cell-text { font-size: 12px; color: #bbb; line-height: 1.6; }
+
+    .tags-row { display: flex; gap: 6px; flex-wrap: wrap; }
+    .tag {
+      font-size: 11px; padding: 3px 8px; border-radius: 20px;
+      background: #1a1a1a; border: 1px solid #2a2a2a; color: #888;
+    }
+    .tag.contact-yes { border-color: #3a5a3a; color: #6cb86c; background: #0f1f0f; }
+    .tag.contact-no  { border-color: #3a2a2a; color: #c06060; background: #1a0f0f; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <a href="/">← 營業報表</a>
+  </div>
+
+  <div class="container">
+    <h1>山秧選物研究員</h1>
+    <p class="subtitle">SEYA CURATION RESEARCH</p>
+
+    <div class="form-card">
+      <div class="form-group">
+        <label>搜尋關鍵字</label>
+        <input type="text" id="keyword" placeholder="例如：手工蠟燭、皮革筆記本、陶器…">
+      </div>
+      <div class="form-group">
+        <label>類別</label>
+        <select id="category">
+          <option value="">不限類別</option>
+          <option value="香氛">香氛</option>
+          <option value="咖啡用品">咖啡用品</option>
+          <option value="閱讀書寫">閱讀書寫</option>
+          <option value="居家生活">居家生活</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>地區優先</label>
+        <select id="region">
+          <option value="">不限</option>
+          <option value="台灣">台灣</option>
+          <option value="日本">日本</option>
+          <option value="韓國">韓國</option>
+          <option value="北歐">北歐</option>
+          <option value="歐洲其他">歐洲其他</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>回傳品牌數</label>
+        <select id="count">
+          <option value="3">3個（精選）</option>
+          <option value="5" selected>5個（標準）</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>合作模式偏好</label>
+        <select id="mode">
+          <option value="">不限</option>
+          <option value="批發">批發</option>
+          <option value="寄賣">寄賣</option>
+          <option value="經銷">經銷</option>
+        </select>
+      </div>
+      <button class="btn-search" id="searchBtn" onclick="startResearch()">啟動採購研究</button>
+    </div>
+
+    <div id="statusArea"></div>
+    <div id="resultsArea"></div>
+  </div>
+
+  <script>
+    const brandMap = {};
+
+    function buildMessage() {
+      const keyword  = document.getElementById('keyword').value.trim();
+      const category = document.getElementById('category').value;
+      const region   = document.getElementById('region').value;
+      const count    = document.getElementById('count').value;
+      const mode     = document.getElementById('mode').value;
+
+      let msg = `請研究並推薦 ${count} 個適合山秧選物販售的品牌。`;
+      if (keyword)  msg += `\n關鍵字／主題：${keyword}`;
+      if (category) msg += `\n類別：${category}`;
+      if (region)   msg += `\n地區優先：${region}`;
+      if (mode)     msg += `\n合作模式偏好：${mode}`;
+      msg += `\n請依照評分標準評分，並以 JSON 格式回傳。`;
+      return msg;
+    }
+
+    function setStatus(text, type) {
+      const el = document.getElementById('statusArea');
+      el.innerHTML = text ? `<div class="status ${type}">${text}</div>` : '';
+    }
+
+    async function startResearch() {
+      const btn = document.getElementById('searchBtn');
+      btn.disabled = true;
+      btn.textContent = '研究中…';
+      setStatus('⏳ 山秧研究員正在聯絡各品牌資料庫…', 'loading');
+
+      try {
+        const res = await fetch('/api/curation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userMessage: buildMessage() })
+        });
+        const result = await res.json();
+        if (!result.success) throw new Error(result.error);
+
+        // 找出 text block
+        const textBlock = (result.content || []).find(b => b.type === 'text');
+        if (!textBlock) throw new Error('回傳內容不含文字結果');
+
+        const clean = textBlock.text.replace(/```json|```/g, '').trim();
+        const parsed = JSON.parse(clean);
+        const brands = parsed.brands || [];
+        if (!brands.length) throw new Error('沒有找到品牌資料');
+
+        brands.forEach(renderBrand);
+        setStatus(`✓ 找到 ${brands.length} 個品牌`, '');
+      } catch (e) {
+        setStatus('❌ ' + e.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '啟動採購研究';
+      }
+    }
+
+    function renderBrand(brand) {
+      const id = 'brand-' + brand.name.replace(/\s+/g, '-');
+      const scores = brand.scores || {};
+      const total = scores.total ?? '—';
+      const fit  = scores.fit  ?? 0;
+      const comm = scores.commercial ?? 0;
+      const heat = scores.heat ?? 0;
+
+      const igHtml = brand.ig && brand.ig !== 'N/A'
+        ? `<a class="link-btn" href="https://instagram.com/${brand.ig.replace('@','')}" target="_blank">📷 ${brand.ig}</a>` : '';
+      const webHtml = brand.website && brand.website !== 'N/A'
+        ? `<a class="link-btn" href="${brand.website}" target="_blank">🌐 官網</a>` : '';
+
+      const contactYes = brand.contact && brand.contact.startsWith('是');
+      const contactTag = `<span class="tag ${contactYes ? 'contact-yes' : 'contact-no'}">${contactYes ? '✓ 建議聯絡' : '✗ 暫緩聯絡'}</span>`;
+
+      const html = `
+        <div class="brand-card" id="${id}">
+          <div class="card-header">
+            <div>
+              <div class="brand-name">${brand.name}</div>
+              <div class="brand-meta">${brand.country || ''}${brand.category ? ' · ' + brand.category : ''}</div>
+            </div>
+            <div class="total-score">
+              <div class="score-num">${total}</div>
+              <div class="score-label">總分</div>
+            </div>
+          </div>
+
+          <div class="scores-row">
+            ${scoreItem('契合度', fit)}
+            ${scoreItem('商業可行性', comm)}
+            ${scoreItem('市場熱度', heat)}
+          </div>
+
+          ${igHtml || webHtml ? `<div class="links-row">${igHtml}${webHtml}</div>` : ''}
+
+          <div class="seya-voice">
+            <div class="seya-voice-label">山秧怎麼介紹這個品牌</div>
+            ${brand.seya_voice || ''}
+          </div>
+
+          <div class="analysis-grid">
+            <div class="analysis-cell">
+              <div class="analysis-cell-label">為什麼適合山秧</div>
+              <div class="analysis-cell-text">${brand.why_seya || '—'}</div>
+            </div>
+            <div class="analysis-cell">
+              <div class="analysis-cell-label">目標客群</div>
+              <div class="analysis-cell-text">${brand.target_customer || '—'}</div>
+            </div>
+            <div class="analysis-cell">
+              <div class="analysis-cell-label">展示建議</div>
+              <div class="analysis-cell-text">${brand.display || '—'}</div>
+            </div>
+            <div class="analysis-cell">
+              <div class="analysis-cell-label">採購模式</div>
+              <div class="analysis-cell-text">${brand.procurement || '—'}</div>
+            </div>
+          </div>
+
+          <div class="tags-row">
+            ${contactTag}
+            ${brand.category ? `<span class="tag">${brand.category}</span>` : ''}
+            ${brand.country  ? `<span class="tag">${brand.country}</span>`  : ''}
+          </div>
+        </div>`;
+
+      const existing = document.getElementById(id);
+      if (existing) {
+        existing.outerHTML = html;
+      } else {
+        document.getElementById('resultsArea').insertAdjacentHTML('beforeend', html);
+      }
+      brandMap[brand.name] = true;
+    }
+
+    function scoreItem(label, val) {
+      const pct = Math.round((val / 10) * 100);
+      return `<div class="score-item">
+        <div class="score-item-label">${label}</div>
+        <div class="score-item-val">${val}<span style="font-size:10px;color:#555"> /10</span></div>
+        <div class="progress-bg"><div class="progress-fill" style="width:${pct}%"></div></div>
+      </div>`;
+    }
+  </script>
+</body>
+</html>
