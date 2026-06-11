@@ -3,6 +3,7 @@ if (process.env.NODE_ENV !== 'production') { require('dotenv').config(); }
 const express = require('express');
 const multer = require('multer');
 const cors = require('cors');
+const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
 
 const { Jimp } = require('jimp');
@@ -12,6 +13,10 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 
 app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
+
+app.get('/curation', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'curation.html'));
+});
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
