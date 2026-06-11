@@ -174,10 +174,10 @@ app.post('/api/analyze-multi', upload.array('images', 3), async (req, res) => {
         let buffer = file.buffer;
         if (buffer.length > 1024 * 1024) {
           const img = await Jimp.fromBuffer(buffer);
-          if (img.width > 1200 || img.height > 1200) {
-            img.scaleToFit({ w: 1200, h: 1200 });
+          if (img.width > 800 || img.height > 800) {
+            img.scaleToFit({ w: 800, h: 800 });
           }
-          buffer = await img.getBuffer('image/jpeg', { quality: 70 });
+          buffer = await img.getBuffer('image/jpeg', { quality: 60 });
           console.log(`[analyze-multi] ${imageType} 壓縮後 ${buffer.length}bytes`);
         }
         const parsed = await analyzeImageWithClaude(buffer, 'image/jpeg', imageType);
