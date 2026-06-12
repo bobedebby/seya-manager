@@ -231,6 +231,7 @@
   const STATUS_OPTIONS = ['待評估','待追蹤','優先聯絡','已聯絡','洽談中','已上架','已拒絕','不適合'];
 
   function switchMode(mode) {
+    console.log('switchMode called:', mode);
     currentMode = mode;
     document.getElementById('formKeyword').style.display = mode === 'keyword' ? '' : 'none';
     document.getElementById('formSimilar').style.display = mode === 'similar' ? '' : 'none';
