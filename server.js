@@ -890,15 +890,32 @@ app.post('/api/curation/save', async (req, res) => {
   try {
     const { name, country, category, ig, website,
             score_fit, score_commercial, score_heat, score_total,
-            why_seya, target_customer, display, procurement, contact, seya_voice } = req.body;
+            why_seya, target_customer, display, procurement, contact, seya_voice,
+            status, reason_to_exist } = req.body;
     const { error } = await supabase
       .from('curation_brands')
       .upsert({
         name, country, category, ig, website,
         score_fit, score_commercial, score_heat, score_total,
         why_seya, target_customer, display, procurement, contact, seya_voice,
+        status: status || '待評估',
+        reason_to_exist,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'name' });
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.post('/api/curation/status', async (req, res) => {
+  try {
+    const { name, status } = req.body;
+    const { error } = await supabase
+      .from('curation_brands')
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq('name', name);
     if (error) throw error;
     res.json({ success: true });
   } catch (e) {

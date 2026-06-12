@@ -18,6 +18,11 @@
     .header-title { font-size: 18px; font-weight: 700; color: #fff; }
     .saved-count { font-size: 12px; color: #888; background: #1e1e1e; border: 1px solid #2a2a2a; border-radius: 20px; padding: 4px 10px; white-space: nowrap; }
 
+    /* Mode toggle */
+    .mode-toggle { display: flex; background: #161616; border: 1px solid #222; border-radius: 10px; padding: 4px; margin-bottom: 14px; gap: 4px; }
+    .mode-btn { flex: 1; padding: 9px 8px; border: none; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s; background: transparent; color: #666; }
+    .mode-btn.active { background: #e8e8e8; color: #0d0d0d; }
+
     /* Form */
     .form-card { background: #161616; border: 1px solid #222; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
     .form-group { margin-bottom: 12px; }
@@ -26,8 +31,7 @@
     .form-group input, .form-group select {
       width: 100%; background: #0d0d0d; border: 1px solid #2a2a2a; border-radius: 8px;
       padding: 12px; font-size: 15px; color: #e8e8e8; outline: none;
-      -webkit-appearance: none; appearance: none;
-      transition: border-color 0.2s;
+      -webkit-appearance: none; appearance: none; transition: border-color 0.2s;
     }
     .form-group input::placeholder { color: #444; }
     .form-group input:focus, .form-group select:focus { border-color: #555; }
@@ -50,11 +54,7 @@
     /* Filter bar */
     .filter-bar { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 16px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
     .filter-bar::-webkit-scrollbar { display: none; }
-    .filter-btn {
-      flex-shrink: 0; padding: 6px 14px; border-radius: 20px; font-size: 12px;
-      border: 1px solid #2a2a2a; color: #888; background: #161616; cursor: pointer;
-      transition: all 0.15s; white-space: nowrap;
-    }
+    .filter-btn { flex-shrink: 0; padding: 6px 14px; border-radius: 20px; font-size: 12px; border: 1px solid #2a2a2a; color: #888; background: #161616; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
     .filter-btn.active { border-color: #c8b97a; color: #c8b97a; background: #1e1b10; }
 
     /* Section label */
@@ -66,11 +66,7 @@
     .card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
     .brand-name { font-size: 17px; font-weight: 700; color: #fff; margin-bottom: 3px; }
     .brand-meta { font-size: 12px; color: #666; }
-    .score-badge {
-      flex-shrink: 0; min-width: 44px; height: 44px; border-radius: 10px; border: 1px solid #2a2a2a;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      background: #111; margin-left: 10px;
-    }
+    .score-badge { flex-shrink: 0; min-width: 44px; height: 44px; border-radius: 10px; border: 1px solid #2a2a2a; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #111; margin-left: 10px; }
     .score-badge .num { font-size: 19px; font-weight: 700; line-height: 1; }
     .score-badge .lbl { font-size: 9px; color: #666; margin-top: 2px; }
     .score-high { color: #4c9; }
@@ -97,11 +93,39 @@
     .info-cell-label { font-size: 10px; color: #555; letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 4px; }
     .info-cell-text { font-size: 12px; color: #bbb; line-height: 1.5; }
 
-    .tags-row { display: flex; gap: 6px; flex-wrap: wrap; }
+    /* Reason to exist */
+    .reason-cell { background: #111; border-radius: 8px; padding: 10px; margin-bottom: 14px; }
+    .reason-cell-label { font-size: 10px; color: #555; letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 4px; }
+    .reason-cell-text { font-size: 12px; color: #bbb; line-height: 1.5; }
+
+    .tags-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
     .tag { font-size: 11px; padding: 3px 9px; border-radius: 20px; background: #1a1a1a; border: 1px solid #2a2a2a; color: #888; }
-    .tag.contact-yes { border-color: #2a4a2a; color: #4c9; background: #0a150a; }
+    .tag.contact-yes   { border-color: #2a4a2a; color: #4c9; background: #0a150a; }
     .tag.contact-watch { border-color: #3a3a1a; color: #c8b97a; background: #12110a; }
-    .tag.contact-no { border-color: #3a1a1a; color: #e05; background: #150a0a; }
+    .tag.contact-no    { border-color: #3a1a1a; color: #e05; background: #150a0a; }
+
+    /* Status select */
+    .status-select-wrap { margin-top: 4px; }
+    .status-select {
+      width: 100%; padding: 8px 30px 8px 10px; border-radius: 8px; font-size: 12px; font-weight: 600;
+      border: 1px solid #2a2a2a; background-color: #111; color: #e8e8e8;
+      -webkit-appearance: none; appearance: none; cursor: pointer; outline: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23666' d='M5 6L0 0h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 10px center;
+      transition: border-color 0.15s;
+    }
+    .status-select:focus { border-color: #555; }
+    .status-select option { background: #161616; }
+
+    /* Status colors */
+    .status-待評估  { border-color: #333; color: #888; }
+    .status-待追蹤  { border-color: #1a3a5a; color: #6ab0e0; background-color: #0a1825; }
+    .status-優先聯絡 { border-color: #4a3a00; color: #c8b97a; background-color: #1a1500; }
+    .status-已聯絡  { border-color: #4a2a00; color: #e08030; background-color: #1a1000; }
+    .status-洽談中  { border-color: #3a1a5a; color: #b080e0; background-color: #150a20; }
+    .status-已上架  { border-color: #1a4a1a; color: #4c9; background-color: #0a150a; }
+    .status-已拒絕  { border-color: #4a1a1a; color: #e05050; background-color: #150a0a; }
+    .status-不適合  { border-color: #222; color: #555; background-color: #111; }
 
     .empty-state { text-align: center; padding: 40px 20px; color: #444; font-size: 14px; }
   </style>
@@ -117,7 +141,14 @@
     <div class="saved-count" id="savedCount">— 個品牌</div>
   </div>
 
-  <div class="form-card">
+  <!-- Mode toggle -->
+  <div class="mode-toggle">
+    <button class="mode-btn active" id="modeKeyword" onclick="switchMode('keyword')">關鍵字搜尋</button>
+    <button class="mode-btn" id="modeSimilar" onclick="switchMode('similar')">相似品牌探索</button>
+  </div>
+
+  <!-- Keyword search form -->
+  <div class="form-card" id="formKeyword">
     <div class="form-group">
       <label>搜尋關鍵字</label>
       <input type="text" id="keyword" placeholder="例如：手工蠟燭、皮革筆記本…">
@@ -159,8 +190,25 @@
         <option value="經銷">經銷</option>
       </select>
     </div>
-    <button class="btn-search" id="searchBtn" onclick="startResearch()">啟動採購研究</button>
-    <div id="statusArea"></div>
+    <button class="btn-search" id="searchBtnKeyword" onclick="startResearch('keyword')">啟動採購研究</button>
+    <div id="statusKeyword"></div>
+  </div>
+
+  <!-- Similar brand exploration form -->
+  <div class="form-card" id="formSimilar" style="display:none">
+    <div class="form-group">
+      <label>輸入品牌名稱</label>
+      <input type="text" id="similarBrand" placeholder="輸入一個你喜歡的品牌，例如 Hightide">
+    </div>
+    <div class="form-group">
+      <label>回傳品牌數</label>
+      <select id="similarCount">
+        <option value="3">3個（精選）</option>
+        <option value="5" selected>5個（標準）</option>
+      </select>
+    </div>
+    <button class="btn-search" id="searchBtnSimilar" onclick="startResearch('similar')">探索鄰近品牌</button>
+    <div id="statusSimilar"></div>
   </div>
 
   <div class="filter-bar" id="filterBar">
@@ -176,9 +224,19 @@
 
 </div>
 <script>
-  // brandDB: name → brand object
   const brandDB = {};
   let activeFilter = '';
+  let currentMode = 'keyword';
+
+  const STATUS_OPTIONS = ['待評估','待追蹤','優先聯絡','已聯絡','洽談中','已上架','已拒絕','不適合'];
+
+  function switchMode(mode) {
+    currentMode = mode;
+    document.getElementById('formKeyword').style.display = mode === 'keyword' ? '' : 'none';
+    document.getElementById('formSimilar').style.display = mode === 'similar' ? '' : 'none';
+    document.getElementById('modeKeyword').classList.toggle('active', mode === 'keyword');
+    document.getElementById('modeSimilar').classList.toggle('active', mode === 'similar');
+  }
 
   function setFilter(btn, cat) {
     activeFilter = cat;
@@ -188,8 +246,7 @@
   }
 
   function updateSavedCount() {
-    const n = Object.keys(brandDB).length;
-    document.getElementById('savedCount').textContent = n + ' 個品牌';
+    document.getElementById('savedCount').textContent = Object.keys(brandDB).length + ' 個品牌';
   }
 
   function sortedBrands() {
@@ -216,6 +273,20 @@
 
   function barPct(n) { return Math.round((n / 10) * 100) + '%'; }
 
+  function statusSelectHTML(name, currentStatus) {
+    const cur = currentStatus || '待評估';
+    const opts = STATUS_OPTIONS.map(s =>
+      `<option value="${s}"${s === cur ? ' selected' : ''}>${s}</option>`
+    ).join('');
+    const safeId = 'ss-' + name.replace(/\s+/g, '-');
+    return `<div class="status-select-wrap">
+      <select class="status-select status-${cur}" id="${safeId}"
+        onchange="onStatusChange('${name.replace(/'/g,"\\'")}', this)">
+        ${opts}
+      </select>
+    </div>`;
+  }
+
   function brandCardHTML(b) {
     const total = b.score_total ?? '—';
     const fit   = b.score_fit ?? 0;
@@ -235,6 +306,12 @@
     const contactLabel = contactVal.startsWith('是') ? '✓ 建議聯絡'
                        : contactVal.startsWith('觀望') ? '◎ 觀望'
                        : '✗ 暫緩';
+
+    const reasonHtml = b.reason_to_exist
+      ? `<div class="reason-cell">
+           <div class="reason-cell-label">存在理由</div>
+           <div class="reason-cell-text">${b.reason_to_exist}</div>
+         </div>` : '';
 
     return `<div class="brand-card">
       <div class="card-top">
@@ -263,20 +340,44 @@
         <div class="info-cell"><div class="info-cell-label">展示建議</div><div class="info-cell-text">${b.display || '—'}</div></div>
         <div class="info-cell"><div class="info-cell-label">採購模式</div><div class="info-cell-text">${b.procurement || '—'}</div></div>
       </div>
+      ${reasonHtml}
       <div class="tags-row">
         <span class="tag ${contactClass}">${contactLabel}</span>
         ${b.category ? `<span class="tag">${b.category}</span>` : ''}
         ${b.country  ? `<span class="tag">${b.country}</span>`  : ''}
       </div>
+      ${statusSelectHTML(b.name, b.status)}
     </div>`;
   }
 
-  function setStatus(text, type) {
-    const el = document.getElementById('statusArea');
+  async function onStatusChange(name, selectEl) {
+    const status = selectEl.value;
+    // update color class
+    STATUS_OPTIONS.forEach(s => selectEl.classList.remove('status-' + s));
+    selectEl.classList.add('status-' + status);
+    // update local DB
+    if (brandDB[name]) brandDB[name].status = status;
+    try {
+      await fetch('/api/curation/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, status }),
+      });
+    } catch (_) {}
+  }
+
+  function setStatus(areaId, text, type) {
+    const el = document.getElementById(areaId);
     el.innerHTML = text ? `<div class="status-msg ${type}" style="margin-top:10px">${text}</div>` : '';
   }
 
-  function buildMessage() {
+  function buildMessage(mode) {
+    if (mode === 'similar') {
+      const brand = document.getElementById('similarBrand').value.trim();
+      const count = document.getElementById('similarCount').value;
+      if (!brand) return null;
+      return `請以『${brand}』為起點，找出風格相近、但知名度較低的鄰近品牌。\n重點是找到別人不知道但值得關注的品牌，不是找大家都知道的品牌。\n同時搜尋每個品牌的台灣代理資訊與批發/經銷合作方式。\n回傳 ${count} 個品牌，格式同前。`;
+    }
     const keyword  = document.getElementById('keyword').value.trim();
     const category = document.getElementById('category').value;
     const region   = document.getElementById('region').value;
@@ -301,25 +402,28 @@
     } catch (_) {}
   }
 
-  async function startResearch() {
-    const btn = document.getElementById('searchBtn');
+  async function startResearch(mode) {
+    const btnId  = mode === 'similar' ? 'searchBtnSimilar' : 'searchBtnKeyword';
+    const statId = mode === 'similar' ? 'statusSimilar'    : 'statusKeyword';
+    const btn = document.getElementById(btnId);
+    const userMessage = buildMessage(mode);
+    if (!userMessage) { setStatus(statId, '❌ 請輸入品牌名稱', 'error'); return; }
+
     btn.disabled = true;
     btn.textContent = '研究中…';
-    setStatus('⏳ 山秧研究員正在聯絡各品牌資料庫…', 'loading');
+    setStatus(statId, '⏳ 山秧研究員正在聯絡各品牌資料庫…', 'loading');
 
     try {
       const res = await fetch('/api/curation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userMessage: buildMessage() }),
+        body: JSON.stringify({ userMessage }),
       });
       const result = await res.json();
       if (!result.success) throw new Error(result.error);
 
       const rawText = (result.content || [])
-        .filter(b => b.type === 'text')
-        .map(b => b.text)
-        .join('');
+        .filter(b => b.type === 'text').map(b => b.text).join('');
       if (!rawText) throw new Error('回傳內容不含文字結果');
 
       const match = rawText.match(/\{[\s\S]*\}/);
@@ -329,7 +433,6 @@
       if (!brands.length) throw new Error('沒有找到品牌資料');
 
       for (const b of brands) {
-        // normalize keys from API response
         const entry = {
           name: b.name,
           country: b.country,
@@ -346,6 +449,8 @@
           procurement: b.procurement,
           contact: b.contact,
           seya_voice: b.seya_voice,
+          reason_to_exist: b.reason_to_exist,
+          status: brandDB[b.name]?.status || b.status || '待評估',
         };
         brandDB[entry.name] = entry;
         saveBrand(entry);
@@ -353,16 +458,15 @@
 
       renderAll();
       updateSavedCount();
-      setStatus(`✓ 找到 ${brands.length} 個品牌，已儲存`, 'success');
+      setStatus(statId, `✓ 找到 ${brands.length} 個品牌，已儲存`, 'success');
     } catch (e) {
-      setStatus('❌ ' + e.message, 'error');
+      setStatus(statId, '❌ ' + e.message, 'error');
     } finally {
       btn.disabled = false;
-      btn.textContent = '啟動採購研究';
+      btn.textContent = mode === 'similar' ? '探索鄰近品牌' : '啟動採購研究';
     }
   }
 
-  // Load saved brands on page load
   async function loadSaved() {
     try {
       const res = await fetch('/api/curation/brands');
