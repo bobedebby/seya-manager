@@ -383,12 +383,12 @@
     const category = document.getElementById('category').value;
     const region   = document.getElementById('region').value;
     const count    = document.getElementById('count').value;
-    const mode     = document.getElementById('mode').value;
+    const collab   = document.getElementById('mode').value;
     let msg = `請研究並推薦 ${count} 個適合山秧選物販售的品牌。`;
     if (keyword)  msg += `\n關鍵字／主題：${keyword}`;
     if (category) msg += `\n類別：${category}`;
     if (region)   msg += `\n地區優先：${region}`;
-    if (mode)     msg += `\n合作模式偏好：${mode}`;
+    if (collab)   msg += `\n合作模式偏好：${collab}`;
     msg += `\n請依照評分標準評分，並以 JSON 格式回傳。`;
     return msg;
   }
